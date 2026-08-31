@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Activate Intern Account | IFL Interns{% endblock %}
+
+
+{% block content %}
+<div style="max-width: 500px; margin: 40px auto;">
+    <div class="card" style="padding: 32px; border-radius: var(--radius-lg); background: rgba(31, 41, 61, 0.85); backdrop-filter: blur(12px);">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div class="brand-icon" style="margin: 0 auto 16px auto; width: 52px; height: 52px; font-size: 1.6rem; background: linear-gradient(135deg, var(--accent-emerald), #34d399);">
+                <i class="fa-solid fa-key"></i>
+            </div>
+            <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 6px;">Activate Your Account</h2>
+            <p style="color: var(--text-muted); font-size: 0.88rem;">Enter your issued Activation Token or Intern ID to set up your login</p>
+        </div>
+
+        {% if form.errors %}
+            <div style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); color: #fb7185; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 0.85rem; margin-bottom: 20px;">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                        <div style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-circle-exclamation"></i> <span>{{ error }}</span></div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" style="display: flex; flex-direction: column; gap: 16px;">
+            {% csrf_token %}
+
+            <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">
+                    Activation Token or Intern ID
+                </label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-barcode" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="text" name="token_or_id" class="form-control" placeholder="e.g. demo-token-12345 or INT-2026-0003" value="{{ form.token_or_id.value|default:token_param }}" required autofocus style="padding-left: 42px;">
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">Activation tokens are one-time use and valid for 48 hours.</div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">
+                    Email Address
+                </label>
+                <div style="position: relative;">
+                    <i class="fa-regular fa-envelope" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="email" name="email" class="form-control" placeholder="you@example.com" value="{{ form.email.value|default:'' }}" required style="padding-left: 42px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">
+                    Create Password
+                </label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="password" name="password" class="form-control" placeholder="At least 8 characters" required style="padding-left: 42px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">
+                    Confirm Password
+                </label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-check-double" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="password" name="confirm_password" class="form-control" placeholder="Re-enter password" required style="padding-left: 42px;">
+                </div>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%; margin-top: 8px; height: 46px; font-size: 1rem; background: var(--accent-emerald);">
+                <i class="fa-solid fa-user-check"></i> Complete Account Activation
+            </button>
+        </form>
+
+        {% if debug %}
+        <div style="margin-top: 20px; padding: 12px; border-radius: var(--radius-sm); background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.8rem; color: #fbbf24;">
+            <i class="fa-solid fa-circle-info"></i> <strong>Testing Activation Token:</strong> Use <code>demo-token-12345</code> (or <code>INT-2026-0003</code>) to test the activation workflow.
+        </div>
+        {% endif %}
+
+        <div style="margin-top: 24px; text-align: center; font-size: 0.88rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 18px;">
+            Already activated your account? <a href="{% url 'accounts:login' %}" style="font-weight: 700;">Sign In</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

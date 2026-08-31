@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Internship Management Portal{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-body: #0b0f19;
+            --bg-surface: #111827;
+            --bg-card: #1f293d;
+            --bg-card-hover: #26334d;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(99, 102, 241, 0.3);
+            
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --primary-glow: rgba(99, 102, 241, 0.25);
+            
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-sky: #06b6d4;
+            --accent-rose: #f43f5e;
+            
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-dim: #6b7280;
+            
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            
+            --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.15);
+            --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-body);
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.6;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: var(--transition-fast);
+        }
+
+        a:hover {
+            color: #818cf8;
+        }
+
+        /* Header Navbar */
+        header.navbar {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 2rem;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), #818cf8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 14px 6px 8px;
+            border-radius: 30px;
+            border: 1px solid var(--border-color);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #fff;
+        }
+
+        .role-pill {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .role-pill.supervisor {
+            background: rgba(16, 185, 129, 0.18);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .role-pill.admin {
+            background: rgba(244, 63, 94, 0.18);
+            color: #fb7185;
+            border-color: rgba(244, 63, 94, 0.3);
+        }
+
+        .logout-btn {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--accent-rose);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition-fast);
+        }
+
+        .logout-btn:hover {
+            background: rgba(244, 63, 94, 0.2);
+            color: #ff6b81;
+            transform: translateY(-1px);
+        }
+
+        /* Container Layout */
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 32px auto;
+            padding: 0 24px;
+            flex: 1;
+        }
+
+        /* Cards System */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-card);
+            transition: var(--transition-fast);
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            color: var(--primary);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: rgba(31, 41, 61, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+        }
+
+        .stat-card.emerald::before { background: var(--accent-emerald); }
+        .stat-card.amber::before { background: var(--accent-amber); }
+        .stat-card.sky::before { background: var(--accent-sky); }
+
+        .stat-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-sm);
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+        }
+
+        .stat-card.emerald .stat-icon { background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); }
+        .stat-card.amber .stat-icon { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
+        .stat-card.sky .stat-icon { background: rgba(6, 182, 212, 0.12); color: var(--accent-sky); }
+
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.2;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Progress Bar */
+        .progress-bar-container {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            height: 12px;
+            overflow: hidden;
+            position: relative;
+            margin: 10px 0;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #38bdf8);
+            border-radius: 10px;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        /* Tables System */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: var(--radius-sm);
+        }
+
+        table.custom-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            text-align: left;
+        }
+
+        table.custom-table th {
+            background: rgba(17, 24, 39, 0.6);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table.custom-table td {
+            padding: 16px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+
+        table.custom-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .badge-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .badge-in_progress {
+            background: rgba(6, 182, 212, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+
+        .badge-completed {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        /* Status Select Dropdown */
+        .status-select {
+            background: rgba(17, 24, 39, 0.8);
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+            transition: var(--transition-fast);
+        }
+
+        .status-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        /* Form Inputs & Buttons */
+        .form-control {
+            width: 100%;
+            background: rgba(17, 24, 39, 0.7);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: var(--transition-fast);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+            background: rgba(17, 24, 39, 0.95);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.925rem;
+            cursor: pointer;
+            transition: var(--transition-fast);
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            box-shadow: none;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Toast Notifications */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: #1f293d;
+            color: #fff;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-emerald);
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Modal System */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            transform: scale(0.95);
+            transition: transform 0.25s ease;
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.25rem;
+            cursor: pointer;
+        }
+
+        .close-modal:hover { color: #fff; }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <a href="{% url 'dashboard:router' %}" class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <span>IFL Interns</span>
+        </a>
+        <div class="user-nav">
+            {% if user.is_authenticated %}
+                <!-- Notification Dropdown -->
+                <div class="notif-wrapper" style="position: relative;">
+                    <button id="notifBtn" onclick="toggleNotifications()" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;">
+                        <i class="fa-regular fa-bell" style="font-size: 1.1rem;"></i>
+                        <span id="notifBadge" style="display: none; position: absolute; top: -2px; right: -2px; background: var(--accent-rose); color: #fff; font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center;">0</span>
+                    </button>
+
+                    <div id="notifDropdown" style="display: none; position: absolute; right: 0; top: 50px; width: 340px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: 0 15px 35px rgba(0,0,0,0.6); z-index: 1000; overflow: hidden;">
+                        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;">
+                            <span><i class="fa-solid fa-bell" style="color: var(--primary);"></i> Notifications</span>
+                            <span id="notifCountText" style="font-size: 0.75rem; color: var(--text-muted);">0 unread</span>
+                        </div>
+                        <div id="notifList" style="max-height: 320px; overflow-y: auto; padding: 8px 0;">
+                            <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading notifications...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="user-badge">
+                    <div class="user-avatar">{{ user.first_name|default:user.username|slice:":1"|upper }}</div>
+                    <div>
+                        <span style="font-weight: 600; font-size: 0.9rem; display: block; line-height: 1.2;">
+                            {{ user.get_full_name|default:user.username }}
+                        </span>
+                        <span class="role-pill {{ user.role }}">{{ user.get_role_display }}</span>
+                    </div>
+                </div>
+
+                {% if user.role == 'admin' or user.is_superuser %}
+                    <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-outline" style="padding: 6px 14px; font-size: 0.82rem;">
+                        <i class="fa-solid fa-user-shield"></i> Admin Portal
+                    </a>
+                {% endif %}
+
+                <a href="{% url 'accounts:logout' %}" class="logout-btn">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            {% else %}
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline" style="padding: 8px 18px;">Login</a>
+                <a href="{% url 'accounts:activate' %}" class="btn" style="padding: 8px 18px;">Activate Account</a>
+            {% endif %}
+        </div>
+
+    </header>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.style.borderLeftColor = type === 'success' ? '#10b981' : '#f43f5e';
+            toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}" style="color: ${type === 'success' ? '#10b981' : '#f43f5e'};"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // Notification System Script
+        function toggleNotifications() {
+            const dropdown = document.getElementById('notifDropdown');
+            if (!dropdown) return;
+            const isVisible = dropdown.style.display === 'block';
+            dropdown.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                fetchNotifications();
+            }
+        }
+
+        function fetchNotifications() {
+            fetch('/notifications/')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const badge = document.getElementById('notifBadge');
+                        const countText = document.getElementById('notifCountText');
+                        const list = document.getElementById('notifList');
+
+                        if (data.unread_count > 0) {
+                            badge.innerText = data.unread_count;
+                            badge.style.display = 'inline-block';
+                            countText.innerText = `${data.unread_count} unread`;
+                        } else {
+                            badge.style.display = 'none';
+                            countText.innerText = '0 unread';
+                        }
+
+                        if (!data.notifications || data.notifications.length === 0) {
+                            list.innerHTML = `<div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No notifications.</div>`;
+                            return;
+                        }
+
+                        list.innerHTML = data.notifications.map(n => `
+                            <div onclick="markNotifRead(${n.id}, '${n.link}')" style="padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; background: ${n.is_read ? 'transparent' : 'rgba(99,102,241,0.08)'}; transition: background 0.2s ease;">
+                                <div style="font-weight: 700; font-size: 0.82rem; color: ${n.is_read ? 'var(--text-muted)' : '#fff'}; margin-bottom: 2px;">
+                                    ${n.title}
+                                </div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.3;">${n.message}</div>
+                                <div style="font-size: 0.7rem; color: var(--text-dim); margin-top: 4px;">${n.created_at}</div>
+                            </div>
+                        `).join('');
+                    }
+                }).catch(() => {});
+        }
+
+        function markNotifRead(id, link) {
+            fetch(`/notifications/${id}/read/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken }
+            }).then(() => {
+                if (link && link !== '#') window.location.href = link;
+                else fetchNotifications();
+            });
+        }
+
+        // Auto fetch unread count on page load if user logged in
+        {% if user.is_authenticated %}
+            document.addEventListener('DOMContentLoaded', fetchNotifications);
+        {% endif %}
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
+

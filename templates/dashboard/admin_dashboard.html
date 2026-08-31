@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Admin Control Portal | IFL Interns{% endblock %}
+
+
+{% block content %}
+<!-- Header Section -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h1 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 4px;">
+            <i class="fa-solid fa-user-shield" style="color: var(--accent-rose);"></i> Admin Management Portal
+        </h1>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">
+            System-wide oversight, Intern ID generation, Supervisor assignments, and Department focus areas.
+        </p>
+    </div>
+    <div style="display: flex; gap: 12px;">
+        <button onclick="openIssueModal()" class="btn" style="background: linear-gradient(135deg, var(--primary), #818cf8);">
+            <i class="fa-solid fa-user-plus"></i> Issue Intern ID
+        </button>
+        <button onclick="openSupervisorModal()" class="btn btn-outline">
+            <i class="fa-solid fa-user-tie"></i> Add Supervisor
+        </button>
+        <button onclick="openDeptModal()" class="btn btn-outline">
+            <i class="fa-solid fa-building"></i> Add Department
+        </button>
+    </div>
+</div>
+
+<!-- Key System Metrics -->
+<div class="stats-grid">
+    <div class="stat-card sky">
+        <div class="stat-icon"><i class="fa-solid fa-user-graduate"></i></div>
+        <div>
+            <div class="stat-value">{{ total_interns }}</div>
+            <div class="stat-label">Total Interns Roster</div>
+        </div>
+    </div>
+    <div class="stat-card emerald">
+        <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <div>
+            <div class="stat-value">{{ activated_interns }}</div>
+            <div class="stat-label">Activated Accounts</div>
+        </div>
+    </div>
+    <div class="stat-card amber">
+        <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+        <div>
+            <div class="stat-value">{{ pending_activations }}</div>
+            <div class="stat-label">Pending Activations</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon"><i class="fa-solid fa-user-tie"></i></div>
+        <div>
+            <div class="stat-value">{{ total_supervisors }}</div>
+            <div class="stat-label">Active Supervisors</div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Admin Tables Card -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fa-solid fa-list-check"></i> Intern Onboarding & Account Tokens
+        </div>
+        <button onclick="openIssueModal()" class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;">
+            + Issue New Intern ID
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Intern ID</th>
+                    <th>Full Name</th>
+                    <th>University & Degree</th>
+                    <th>Assigned Supervisor</th>
+                    <th>Activation Status</th>
+                    <th>Activation Link / Token</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for intern in interns %}
+                <tr>
+                    <td>
+                        <strong style="color: var(--primary); font-family: monospace; font-size: 0.95rem;">{{ intern.intern_id }}</strong>
+                    </td>
+                    <td style="font-weight: 700; color: #fff;">{{ intern.full_name }}</td>
+                    <td style="color: var(--text-muted); font-size: 0.85rem;">
+                        {{ intern.university }}<br>
+                        <span style="color: var(--text-dim);">{{ intern.degree }}</span>
+                    </td>
+                    <td>
+                        {% if intern.supervisor and intern.supervisor.user %}
+                            <span style="color: #fff;"><i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i> {{ intern.supervisor.user.get_full_name }}</span>
+                        {% else %}
+                            <span style="color: var(--text-dim); font-style: italic;">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if intern.is_activated %}
+                            <span class="badge badge-completed"><i class="fa-solid fa-check"></i> Activated</span>
+                        {% else %}
+                            <span class="badge badge-pending"><i class="fa-solid fa-clock"></i> Pending Token</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if not intern.is_activated %}
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <input type="text" id="token_{{ intern.id }}" value="{{ request.scheme }}://{{ request.get_host }}/accounts/activate/?token={{ intern.activation_token|default:intern.intern_id }}" readonly class="form-control" style="padding: 4px 8px; font-size: 0.75rem; width: 190px; height: 32px; font-family: monospace;">
+                                <button onclick="copyToken('token_{{ intern.id }}')" class="btn btn-outline" style="padding: 4px 10px; height: 32px; font-size: 0.75rem;">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                        {% else %}
+                            <span style="color: var(--text-dim); font-size: 0.8rem;">Account Active ({{ intern.user.email }})</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                        No intern profiles issued yet. Click <strong>Issue Intern ID</strong> above to onboard an intern!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Issue Intern ID -->
+<div id="issueModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-id-card" style="color: var(--primary);"></i> Issue New Intern ID & Activation Token
+            </h3>
+            <button onclick="closeModal('issueModal')" class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="issueForm" style="display: flex; flex-direction: column; gap: 14px;">
+                {% csrf_token %}
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Intern Full Name *</label>
+                    <input type="text" name="full_name" required placeholder="e.g. John Doe" class="form-control">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">University / Institute *</label>
+                        <input type="text" name="university" required placeholder="e.g. Stanford University" class="form-control">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Degree / Domain *</label>
+                        <input type="text" name="degree" required placeholder="e.g. BS Computer Science" class="form-control">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Initial Department</label>
+                        <select name="department_id" class="form-control">
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Assigned Supervisor</label>
+                        <select name="supervisor_id" class="form-control">
+                            {% for sup in supervisors %}
+                                <option value="{{ sup.id }}">{{ sup.user.get_full_name }} ({{ sup.department_focus }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Start Date</label>
+                        <input type="date" name="start_date" class="form-control">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">End Date</label>
+                        <input type="date" name="end_date" class="form-control">
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="margin-top: 10px; height: 44px;">
+                    <i class="fa-solid fa-key"></i> Generate Intern ID & Activation Token
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Supervisor -->
+<div id="supervisorModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i> Add New Supervisor
+            </h3>
+            <button onclick="closeModal('supervisorModal')" class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="supervisorForm" style="display: flex; flex-direction: column; gap: 14px;">
+                {% csrf_token %}
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">FIRST NAME *</label>
+                        <input type="text" name="first_name" required placeholder="Sarah" class="form-control">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">LAST NAME</label>
+                        <input type="text" name="last_name" placeholder="Connor" class="form-control">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">EMAIL ADDRESS *</label>
+                    <input type="email" name="email" required placeholder="supervisor@example.com" class="form-control">
+                </div>
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">PASSWORD *</label>
+                    <input type="password" name="password" required placeholder="••••••••" class="form-control">
+                </div>
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">DEPARTMENT FOCUS</label>
+                    <input type="text" name="department_focus" placeholder="e.g. Enterprise Systems & ERP" class="form-control">
+                </div>
+                <button type="submit" class="btn" style="background: var(--accent-emerald); height: 44px; margin-top: 8px;">
+                    <i class="fa-solid fa-check"></i> Create Supervisor Account
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Department -->
+<div id="deptModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-building" style="color: var(--accent-sky);"></i> Create Rotation Department
+            </h3>
+            <button onclick="closeModal('deptModal')" class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="deptForm" style="display: flex; flex-direction: column; gap: 14px;">
+                {% csrf_token %}
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">DEPARTMENT NAME *</label>
+                    <input type="text" name="name" required placeholder="e.g. Artificial Intelligence & Data" class="form-control">
+                </div>
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">DESCRIPTION</label>
+                    <textarea name="description" rows="3" placeholder="Description of domain rotation focus..." class="form-control"></textarea>
+                </div>
+                <button type="submit" class="btn" style="background: var(--accent-sky); height: 44px; margin-top: 8px;">
+                    <i class="fa-solid fa-plus"></i> Save Department
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openIssueModal() { document.getElementById('issueModal').classList.add('active'); }
+function openSupervisorModal() { document.getElementById('supervisorModal').classList.add('active'); }
+function openDeptModal() { document.getElementById('deptModal').classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function copyToken(inputId) {
+    const input = document.getElementById(inputId);
+    input.select();
+    document.execCommand('copy');
+    showToast('Activation link copied to clipboard!', 'success');
+}
+
+// Issue Form Submission
+document.getElementById('issueForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('/issue-intern-id/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData
+    }).then(res => res.json()).then(data => {
+        if (data.success) {
+            showToast(`Generated Intern ID: ${data.intern_id}`, 'success');
+            closeModal('issueModal');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            showToast(data.error || 'Failed to issue Intern ID', 'error');
+        }
+    });
+});
+
+// Supervisor Form Submission
+document.getElementById('supervisorForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('/create-supervisor/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData
+    }).then(res => res.json()).then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            closeModal('supervisorModal');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            showToast(data.error || 'Failed to create supervisor', 'error');
+        }
+    });
+});
+
+// Department Form Submission
+document.getElementById('deptForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('/create-department/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData
+    }).then(res => res.json()).then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            closeModal('deptModal');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            showToast(data.error || 'Failed to create department', 'error');
+        }
+    });
+});
+</script>
+{% endblock %}

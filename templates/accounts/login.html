@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Sign In | IFL Interns{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 40px auto;">
+    <div class="card" style="padding: 32px; border-radius: var(--radius-lg); background: rgba(31, 41, 61, 0.85); backdrop-filter: blur(12px);">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div class="brand-icon" style="margin: 0 auto 16px auto; width: 52px; height: 52px; font-size: 1.6rem;">
+                <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 6px;">Sign In to IFL Interns</h2>
+
+            <p style="color: var(--text-muted); font-size: 0.88rem;">Access your dashboard using your Email address or Intern ID</p>
+        </div>
+
+        {% if form.errors %}
+            <div style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); color: #fb7185; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 0.85rem; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>Invalid credentials. Please check your Email/Intern ID and password.</span>
+            </div>
+        {% endif %}
+
+        <form method="post" style="display: flex; flex-direction: column; gap: 18px;">
+            {% csrf_token %}
+            <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">
+                    Email Address
+                </label>
+                <div style="position: relative;">
+                    <i class="fa-regular fa-envelope" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="text" id="id_username" name="username" class="form-control" placeholder="name@example.com" required autofocus style="padding-left: 42px;">
+                </div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">
+                    Password
+                </label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="password" id="id_password" name="password" class="form-control" placeholder="••••••••" required style="padding-left: 42px;">
+                </div>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%; margin-top: 6px; height: 46px; font-size: 1rem;">
+                <i class="fa-solid fa-right-to-bracket"></i> Sign In
+            </button>
+        </form>
+
+        <!-- Development-Only Quick Demo Login Pills (Hidden in Production when DEBUG=False) -->
+        {% if debug %}
+        <div style="margin-top: 24px; padding-top: 18px; border-top: 1px dashed var(--border-color);">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-amber); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-flask"></i> Quick Demo Logins (Click to Fill & Sign In):
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button type="button" onclick="fillDemo('admin@example.com', 'admin123')" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem; justify-content: space-between;">
+                    <span><i class="fa-solid fa-user-shield" style="color: var(--accent-rose);"></i> <strong>Admin Dashboard</strong> (admin@example.com)</span>
+                    <span style="color: var(--text-dim); font-size: 0.72rem;">admin123</span>
+                </button>
+                <button type="button" onclick="fillDemo('supervisor@example.com', 'password123')" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem; justify-content: space-between;">
+                    <span><i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i> <strong>Supervisor Dashboard</strong> (supervisor@example.com)</span>
+                    <span style="color: var(--text-dim); font-size: 0.72rem;">password123</span>
+                </button>
+                <button type="button" onclick="fillDemo('alex.rivera@example.com', 'password123')" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem; justify-content: space-between;">
+                    <span><i class="fa-solid fa-user-graduate" style="color: var(--primary);"></i> <strong>Intern Dashboard</strong> (alex.rivera@example.com)</span>
+                    <span style="color: var(--text-dim); font-size: 0.72rem;">password123</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+
+        <div style="margin-top: 24px; text-align: center; font-size: 0.88rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 18px;">
+            Issued an Intern ID or Activation Token? <a href="{% url 'accounts:activate' %}" style="font-weight: 700;">Activate Account</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function fillDemo(username, password) {
+    document.getElementById('id_username').value = username;
+    document.getElementById('id_password').value = password;
+}
+</script>
+{% endblock %}

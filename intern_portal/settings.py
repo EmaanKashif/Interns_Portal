@@ -25,14 +25,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-mcjv2b7l6nc#_j7l7^f4u_v&#aj0q^*j5uuz!g)v!t7-4op7dg')
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-local-development-key'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 
 allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
-ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()] if allowed_hosts_env else ['*']
 
+ALLOWED_HOSTS = (
+    [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+    if allowed_hosts_env
+    else ['127.0.0.1', 'localhost']
+)
+
+csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in csrf_origins_env.split(',')
+    if origin.strip()
+]
 
 # Application definition
 
@@ -87,18 +102,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
 
-
 # Database
-if os.environ.get('DB_ENGINE') == 'postgres':
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    import dj_database_url
+
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'intern_portal'),
-            'USER': os.environ.get('DB_USER', 'postgres'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
-        }
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True
+        )
     }
 else:
     DATABASES = {
@@ -134,7 +149,7 @@ USE_TZ = True
 
 
 # Static & Media files
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'

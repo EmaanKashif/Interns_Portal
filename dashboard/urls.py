@@ -2,7 +2,6 @@ from django.urls import path
 from . import views
 
 app_name = 'dashboard'
-
 urlpatterns = [
     path('', views.dashboard_router, name='router'),
     path('admin-portal/', views.admin_dashboard, name='admin_dashboard'),
@@ -16,6 +15,38 @@ urlpatterns = [
     path('notifications/', views.get_notifications_api, name='get_notifications_api'),
     path('notifications/<int:notification_id>/read/', views.mark_notification_read_api, name='mark_notification_read_api'),
     path('task/<int:task_id>/update_status/', views.update_task_status, name='update_task_status'),
+    path('task/<int:task_id>/update/', views.update_task_api, name='update_task_api'),
     path('intern/<int:intern_id>/detail/', views.intern_detail_api, name='intern_detail_api'),
+    path('update-intern-supervisor/<int:intern_id>/', views.update_intern_supervisor_api, name='update_intern_supervisor_api'),
+    
+    # Intern Offboard & Restore Endpoints
+    path('intern/<int:intern_id>/remove/', views.remove_intern_api, name='remove_intern_api'),
+    path('intern/<int:intern_id>/restore/', views.restore_intern_api, name='restore_intern_api'),
+    path(
+    'intern/<int:intern_id>/update/',
+    views.update_intern_api,
+    name='update_intern'
+),
+path(
+    'create-admin/',
+    views.create_admin_api,
+    name='create_admin_api'
+),
+path(
+    'supervisor/<int:supervisor_id>/delete/',
+    views.delete_supervisor_api,
+    name='delete_supervisor'
+),
+path(
+    'intern/task/<int:task_id>/edit/',
+    views.intern_edit_task_api,
+    name='intern_edit_task'
+),
+path(
+    'intern/week/<int:week_id>/add-day/',
+    views.intern_add_day_api,
+    name='intern_add_day'
+),
+
 ]
 

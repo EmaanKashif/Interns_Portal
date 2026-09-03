@@ -28,6 +28,20 @@ class Department(models.Model):
     def __str__(self):
         return self.name
 
+class TaskTemplate(models.Model):
+    """Default daily task for a department's rotation — used to auto-generate each intern's schedule.
+    Supervisors manage these via the admin to control what gets assigned per department."""
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='task_templates')
+    day_number = models.PositiveIntegerField()
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['day_number']
+
+    def __str__(self):
+        return f"{self.department.name} · Day {self.day_number}: {self.title}"
+
 
 class InternshipWeek(models.Model):
     """

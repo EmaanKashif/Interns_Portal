@@ -1,10 +1,135 @@
 {% extends "base.html" %}
+
 {% block title %}Admin Control Portal | IFL Interns{% endblock %}
-
-
 {% block content %}
+
+<style>
+    .icon-btn {
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.15s ease;
+    }
+    .icon-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .icon-btn-danger {
+        color: var(--accent-rose);
+        border-color: rgba(244, 63, 94, 0.25);
+    }
+    .icon-btn-danger:hover {
+        background: rgba(244, 63, 94, 0.12);
+        border-color: var(--accent-rose);
+    }
+
+    .icon-btn-success {
+        color: var(--accent-emerald);
+        border-color: rgba(16, 185, 129, 0.25);
+    }
+    .icon-btn-success:hover {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: var(--accent-emerald);
+    }
+
+    .icon-btn-edit {
+        color: var(--primary);
+        border-color: rgba(99, 102, 241, 0.25);
+    }
+
+    .icon-btn-edit:hover {
+        background: rgba(99, 102, 241, 0.12);
+        border-color: var(--primary);
+    }
+
+    .stat-card-clickable {
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .stat-card-clickable:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .supervisor-picker {
+        position: relative;
+    }
+
+    .supervisor-suggestions {
+        display: none;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + 6px);
+        z-index: 1000;
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 10px;
+        background: #171923;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.30);
+        padding: 6px;
+    }
+
+    .supervisor-suggestions.active {
+        display: block;
+    }
+
+    .supervisor-suggestion {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: #fff;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .supervisor-suggestion:hover {
+        background: rgba(255, 255, 255, 0.07);
+    }
+
+    .supervisor-suggestion small {
+        color: var(--text-dim);
+        font-size: 0.75rem;
+    }
+
+    .supervisor-empty {
+        color: var(--text-muted);
+        padding: 12px;
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+</style>
+
 <!-- Header Section -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
+<div
+    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
     <div>
         <h1 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-bottom: 4px;">
             <i class="fa-solid fa-user-shield" style="color: var(--accent-rose);"></i> Admin Management Portal
@@ -13,9 +138,14 @@
             System-wide oversight, Intern ID generation, Supervisor assignments, and Department focus areas.
         </p>
     </div>
-    <div style="display: flex; gap: 12px;">
-        <button onclick="openIssueModal()" class="btn" style="background: linear-gradient(135deg, var(--primary), #818cf8);">
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button onclick="openIssueModal()" class="btn"
+            style="background: linear-gradient(135deg, var(--primary), #818cf8);">
             <i class="fa-solid fa-user-plus"></i> Issue Intern ID
+        </button>
+        <button onclick="openAdminModal()"
+            class="btn btn-outline">
+            <i class="fa-solid fa-user-shield"></i>Add Admin
         </button>
         <button onclick="openSupervisorModal()" class="btn btn-outline">
             <i class="fa-solid fa-user-tie"></i> Add Supervisor
@@ -49,12 +179,18 @@
             <div class="stat-label">Pending Activations</div>
         </div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card stat-card-clickable"
+        onclick="openSupervisorListModal()"
+        role="button"
+        tabindex="0"
+        onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openSupervisorListModal(); }"
+        title="View active supervisors">
         <div class="stat-icon"><i class="fa-solid fa-user-tie"></i></div>
-        <div>
+        <div style="flex: 1;">
             <div class="stat-value">{{ total_supervisors }}</div>
             <div class="stat-label">Active Supervisors</div>
         </div>
+        <i class="fa-solid fa-chevron-right" style="color: var(--text-dim); font-size: 0.8rem;"></i>
     </div>
 </div>
 
@@ -79,6 +215,9 @@
                     <th>Assigned Supervisor</th>
                     <th>Activation Status</th>
                     <th>Activation Link / Token</th>
+                    <th style="width: 96px; text-align: center;">
+                        <span class="sr-only">Actions</span>
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -94,34 +233,78 @@
                     </td>
                     <td>
                         {% if intern.supervisor and intern.supervisor.user %}
-                            <span style="color: #fff;"><i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i> {{ intern.supervisor.user.get_full_name }}</span>
+                        <span style="color: #fff;"><i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i> {{ intern.supervisor.user.get_full_name }}</span>
                         {% else %}
-                            <span style="color: var(--text-dim); font-style: italic;">Unassigned</span>
+                        <span style="color: var(--text-dim); font-style: italic;">Unassigned</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if intern.is_activated %}
-                            <span class="badge badge-completed"><i class="fa-solid fa-check"></i> Activated</span>
-                        {% else %}
-                            <span class="badge badge-pending"><i class="fa-solid fa-clock"></i> Pending Token</span>
-                        {% endif %}
+                        {% if not intern.is_active %}
+                                <span class="badge badge-removed">
+                                    <i class="fa-solid fa-user-slash"></i> Removed
+                                </span>
+
+                            {% elif intern.is_activated %}
+                                <span class="badge badge-completed">
+                                    <i class="fa-solid fa-check"></i> Activated
+                                </span>
+
+                            {% else %}
+                                <span class="badge badge-pending">
+                                    <i class="fa-solid fa-clock"></i> Pending Token
+                                </span>
+                            {% endif %}
                     </td>
                     <td>
                         {% if not intern.is_activated %}
-                            <div style="display: flex; gap: 6px; align-items: center;">
-                                <input type="text" id="token_{{ intern.id }}" value="{{ request.scheme }}://{{ request.get_host }}/accounts/activate/?token={{ intern.activation_token|default:intern.intern_id }}" readonly class="form-control" style="padding: 4px 8px; font-size: 0.75rem; width: 190px; height: 32px; font-family: monospace;">
-                                <button onclick="copyToken('token_{{ intern.id }}')" class="btn btn-outline" style="padding: 4px 10px; height: 32px; font-size: 0.75rem;">
-                                    <i class="fa-regular fa-copy"></i>
-                                </button>
-                            </div>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="text" id="token_{{ intern.id }}"
+                                value="{{ request.scheme }}://{{ request.get_host }}/accounts/activate/?token={{ intern.activation_token|default:intern.intern_id }}"
+                                readonly class="form-control"
+                                style="padding: 4px 8px; font-size: 0.75rem; width: 190px; height: 32px; font-family: monospace;">
+                            <button onclick="copyToken('token_{{ intern.id }}')" class="btn btn-outline"
+                                style="padding: 4px 10px; height: 32px; font-size: 0.75rem;">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
                         {% else %}
-                            <span style="color: var(--text-dim); font-size: 0.8rem;">Account Active ({{ intern.user.email }})</span>
+                        <span style="color: var(--text-dim); font-size: 0.8rem;">Account Active ({{ intern.user.email }})</span>
                         {% endif %}
+                    </td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                            <button type="button"
+                                onclick="openEditInternModal(
+                                    {{ intern.id }},
+                                    '{{ intern.full_name|escapejs }}',
+                                    '{{ intern.university|escapejs }}',
+                                    '{{ intern.degree|escapejs }}',
+                                    '{% if intern.supervisor and intern.supervisor.user %}{{ intern.supervisor.user.get_full_name|escapejs }}{% else %}{{ intern.custom_supervisor_name|default:''|escapejs }}{% endif %}'
+                                )"
+                                class="icon-btn icon-btn-edit"
+                                title="Edit intern details" aria-label="Edit intern">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+
+                            {% if intern.is_active %}
+                            <button onclick="removeIntern({{ intern.id }}, '{{ intern.full_name|escapejs }}')"
+                                class="icon-btn icon-btn-danger"
+                                title="Remove from active roster" aria-label="Remove intern">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                            {% else %}
+                            <button onclick="restoreIntern({{ intern.id }}, '{{ intern.full_name|escapejs }}')"
+                                class="icon-btn icon-btn-success"
+                                title="Restore to active roster" aria-label="Restore intern">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
                         No intern profiles issued yet. Click <strong>Issue Intern ID</strong> above to onboard an intern!
                     </td>
                 </tr>
@@ -162,17 +345,42 @@
                         <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Initial Department</label>
                         <select name="department_id" class="form-control">
                             {% for dept in departments %}
-                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            <option value="{{ dept.id }}">{{ dept.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
                         <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Assigned Supervisor</label>
-                        <select name="supervisor_id" class="form-control">
-                            {% for sup in supervisors %}
-                                <option value="{{ sup.id }}">{{ sup.user.get_full_name }} ({{ sup.department_focus }})</option>
-                            {% endfor %}
-                        </select>
+                        <!-- Hidden FK value expected by the existing backend. -->
+                        <input type="hidden" name="supervisor_id" id="supervisorId">
+
+                        <div class="supervisor-picker" id="supervisorPicker">
+                            <input type="text"
+                                id="supervisorName"
+                                placeholder="Type or select supervisor..."
+                                autocomplete="off"
+                                class="form-control"
+                                aria-autocomplete="list"
+                                aria-controls="supervisorSuggestions">
+
+                            <div id="supervisorSuggestions" class="supervisor-suggestions">
+                                {% for sup in supervisors %}
+                                <button type="button"
+                                    class="supervisor-suggestion"
+                                    data-id="{{ sup.id }}"
+                                    data-name="{{ sup.user.get_full_name|default:sup.user.username|escape }}">
+                                    <span>{{ sup.user.get_full_name|default:sup.user.username }}</span>
+                                    <small>{{ sup.department_focus|default:"General" }}</small>
+                                </button>
+                                {% empty %}
+                                <div class="supervisor-empty">No supervisors available.</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <small style="display: block; margin-top: 6px; color: var(--text-dim); font-size: 0.75rem;">
+                            Click the field to see all supervisors, or start typing to filter the list.
+                        </small>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
@@ -193,44 +401,344 @@
     </div>
 </div>
 
-<!-- Modal: Add Supervisor -->
-<div id="supervisorModal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 500px;">
+<!-- Modal: Edit Intern -->
+<div id="editInternModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 560px;">
         <div class="modal-header">
             <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i> Add New Supervisor
+                <i class="fa-solid fa-user-pen" style="color: var(--primary);"></i> Edit Intern Details
             </h3>
-            <button onclick="closeModal('supervisorModal')" class="close-modal">&times;</button>
+            <button type="button" onclick="closeModal('editInternModal')" class="close-modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="editInternForm" style="display: flex; flex-direction: column; gap: 14px;">
+                {% csrf_token %}
+                <input type="hidden" id="editInternId">
+
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Full Name *</label>
+                    <input type="text" id="editInternName" name="full_name" required class="form-control">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">University / Institute *</label>
+                        <input type="text" id="editInternUniversity" name="university" required class="form-control">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Degree / Domain *</label>
+                        <input type="text" id="editInternDegree" name="degree" required class="form-control">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Assigned Supervisor</label>
+                    <input type="text"
+                        id="editInternSupervisor"
+                        name="supervisor_name"
+                        list="editInternSupervisorList"
+                        placeholder="Type or select supervisor..."
+                        autocomplete="off"
+                        class="form-control">
+
+                    <datalist id="editInternSupervisorList">
+                        {% for sup in supervisors %}
+                        <option value="{{ sup.user.get_full_name|default:sup.user.username }}"></option>
+                        {% endfor %}
+                    </datalist>
+
+                    <small style="display: block; margin-top: 6px; color: var(--text-dim); font-size: 0.75rem;">
+                        Select an existing supervisor or type a supervisor name manually. Leave blank to unassign.
+                    </small>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+                    <button type="button" onclick="closeModal('editInternModal')" class="btn btn-outline">Cancel</button>
+                    <button type="submit" class="btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: View Active Supervisors -->
+<div id="supervisorListModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 620px;">
+        <div class="modal-header">
+            <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i>
+                Active Supervisors
+            </h3>
+            <button type="button" onclick="closeModal('supervisorListModal')" class="close-modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 14px;">
+                {{ total_supervisors }} supervisor{{ total_supervisors|pluralize }} currently available for intern assignment.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto;">
+                {% for supervisor in supervisors %}
+                <div style="display: flex; align-items: center; gap: 13px; padding: 13px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(255,255,255,0.03);">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: rgba(16,185,129,0.12); color: var(--accent-emerald);">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="color: #fff; font-weight: 700;">
+                            {{ supervisor.user.get_full_name|default:supervisor.user.username }}
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 3px;">
+                            {{ supervisor.department_focus|default:"General" }}
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 9px; flex-shrink: 0;">
+                        <span class="badge badge-completed">
+                            <i class="fa-solid fa-check"></i> Active
+                        </span>
+
+                        <button type="button"
+                            onclick="deleteSupervisor({{ supervisor.id }}, '{{ supervisor.user.get_full_name|default:supervisor.user.username|escapejs }}')"
+                            class="icon-btn icon-btn-danger"
+                            title="Permanently delete supervisor"
+                            aria-label="Delete {{ supervisor.user.get_full_name|default:supervisor.user.username }}">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    <i class="fa-solid fa-user-tie" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                    No supervisors added yet.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Supervisor -->
+<div id="supervisorModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i>
+                Add New Supervisor
+            </h3>
+
+            <button type="button"
+                    onclick="closeModal('supervisorModal')"
+                    class="close-modal">
+                &times;
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <form id="supervisorForm"
+                  style="display: flex; flex-direction: column; gap: 14px;">
+                {% csrf_token %}
+
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">
+                        SUPERVISOR NAME *
+                    </label>
+
+                    <input type="text"
+                           name="full_name"
+                           required
+                           maxlength="150"
+                           autocomplete="name"
+                           placeholder="e.g. Muhammad Anas"
+                           class="form-control">
+                </div>
+
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">
+                        EMAIL ADDRESS *
+                    </label>
+
+                    <input type="email"
+                           name="email"
+                           required
+                           autocomplete="email"
+                           placeholder="e.g. anas@company.com"
+                           class="form-control">
+
+                    <small style="display:block; margin-top:6px; color:var(--text-dim); font-size:0.75rem;">
+                        The supervisor will use this email to sign in after activating their account.
+                    </small>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">
+                        DEPARTMENT FOCUS
+                    </label>
+
+                    <input type="text"
+                           name="department_focus"
+                           maxlength="100"
+                           placeholder="e.g. Data Science"
+                           class="form-control">
+                </div>
+
+                <div style="
+                    padding: 12px 14px;
+                    border-radius: 10px;
+                    background: rgba(16,185,129,0.08);
+                    border: 1px solid rgba(16,185,129,0.20);
+                    color: var(--text-muted);
+                    font-size: 0.78rem;
+                    line-height: 1.55;
+                ">
+                    <i class="fa-solid fa-shield-halved" style="color: var(--accent-emerald);"></i>
+                    No password is created by the administrator. A secure one-time activation link will be generated so the supervisor can choose their own password.
+                </div>
+
+                <button type="submit"
+                        id="createSupervisorBtn"
+                        class="btn"
+                        style="background: var(--accent-emerald); height: 44px; margin-top: 4px;">
+                    <i class="fa-solid fa-plus"></i>
+                    Create Supervisor & Activation Link
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Supervisor Activation Link -->
+<div id="supervisorActivationModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 560px;">
+        <div class="modal-header">
+            <h3 style="color:#fff; font-size:1.15rem; font-weight:700; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-link" style="color:var(--accent-emerald);"></i>
+                Supervisor Activation Link
+            </h3>
+
+            <button type="button"
+                    onclick="closeModal('supervisorActivationModal')"
+                    class="close-modal">
+                &times;
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <p id="supervisorActivationMessage"
+               style="color:var(--text-muted); font-size:0.86rem; line-height:1.55; margin-bottom:14px;">
+                Supervisor account created. Share this one-time link with the supervisor.
+            </p>
+
+            <label style="font-size:0.78rem; font-weight:700; color:var(--text-muted);">
+                ACTIVATION LINK
+            </label>
+
+            <div style="display:flex; gap:8px; margin-top:7px;">
+                <input type="text"
+                       id="supervisorActivationLink"
+                       readonly
+                       class="form-control"
+                       style="font-family:monospace; font-size:0.78rem;">
+
+                <button type="button"
+                        onclick="copySupervisorActivationLink()"
+                        class="btn btn-outline"
+                        style="white-space:nowrap;">
+                    <i class="fa-regular fa-copy"></i>
+                    Copy
+                </button>
+            </div>
+
+            <div style="
+                margin-top:14px;
+                padding:12px;
+                border-radius:10px;
+                background:rgba(245,158,11,0.08);
+                border:1px solid rgba(245,158,11,0.20);
+                color:var(--text-muted);
+                font-size:0.76rem;
+                line-height:1.5;
+            ">
+                <i class="fa-solid fa-clock"></i>
+                The activation link expires after 48 hours and becomes invalid immediately after successful activation.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Administrator -->
+<div id="adminModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-shield" style="color: var(--primary);"></i>
+                Add Administrator
+            </h3>
+            <button type="button" onclick="closeModal('adminModal')" class="close-modal">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="supervisorForm" style="display: flex; flex-direction: column; gap: 14px;">
+            <form id="adminForm" style="display: flex; flex-direction: column; gap: 14px;">
                 {% csrf_token %}
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                     <div>
                         <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">FIRST NAME *</label>
-                        <input type="text" name="first_name" required placeholder="Sarah" class="form-control">
+                        <input type="text" name="first_name" required maxlength="150" autocomplete="given-name" placeholder="e.g. Kashif" class="form-control">
                     </div>
                     <div>
                         <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">LAST NAME</label>
-                        <input type="text" name="last_name" placeholder="Connor" class="form-control">
+                        <input type="text" name="last_name" maxlength="150" autocomplete="family-name" placeholder="e.g. Pervaiz" class="form-control">
                     </div>
                 </div>
                 <div>
                     <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">EMAIL ADDRESS *</label>
-                    <input type="email" name="email" required placeholder="supervisor@example.com" class="form-control">
+                    <input type="email" name="email" required autocomplete="email" placeholder="admin@company.com" class="form-control">
                 </div>
                 <div>
                     <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">PASSWORD *</label>
-                    <input type="password" name="password" required placeholder="••••••••" class="form-control">
+                    <input type="password" name="password" id="adminPassword" required minlength="8" autocomplete="new-password" placeholder="Minimum 8 characters" class="form-control">
                 </div>
                 <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">DEPARTMENT FOCUS</label>
-                    <input type="text" name="department_focus" placeholder="e.g. Enterprise Systems & ERP" class="form-control">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">CONFIRM PASSWORD *</label>
+                    <input type="password" name="confirm_password" id="adminConfirmPassword" required minlength="8" autocomplete="new-password" placeholder="Repeat password" class="form-control">
                 </div>
-                <button type="submit" class="btn" style="background: var(--accent-emerald); height: 44px; margin-top: 8px;">
-                    <i class="fa-solid fa-check"></i> Create Supervisor Account
-                </button>
+                <div style="padding: 12px 14px; border-radius: 10px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.22); color: var(--text-muted); font-size: 0.78rem; line-height: 1.55;">
+                    <i class="fa-solid fa-shield-halved" style="color: #f59e0b; margin-right: 6px;"></i>
+                    This account will have administrative access to the internship management portal. Only create accounts for authorized administrators.
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+                    <button type="button" onclick="closeModal('adminModal')" class="btn btn-outline">Cancel</button>
+                    <button type="submit" id="createAdminBtn" class="btn" style="height: 44px;">
+                        <i class="fa-solid fa-user-plus"></i> Create Admin Account
+                    </button>
+                </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirm Action (Remove / Restore) -->
+<div id="confirmModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px;">
+        <div class="modal-header">
+            <h3 id="confirmModalTitle" style="color: #fff; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                <span id="confirmModalIconWrap" style="width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i id="confirmModalIcon" class="fa-solid"></i>
+                </span>
+                <span id="confirmModalTitleText">Confirm Action</span>
+            </h3>
+            <button onclick="closeModal('confirmModal')" class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="confirmModalMessage" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.55; margin-bottom: 22px;"></p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="closeModal('confirmModal')" class="btn btn-outline" style="padding: 9px 18px; font-size: 0.85rem;">
+                    Cancel
+                </button>
+                <button id="confirmModalActionBtn" class="btn" style="padding: 9px 18px; font-size: 0.85rem;">
+                    Confirm
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -262,77 +770,495 @@
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-function openIssueModal() { document.getElementById('issueModal').classList.add('active'); }
-function openSupervisorModal() { document.getElementById('supervisorModal').classList.add('active'); }
-function openDeptModal() { document.getElementById('deptModal').classList.add('active'); }
-function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    // NOTE: `csrftoken` is already declared globally in base.html — do not redeclare it here.
+    // If this page ever runs standalone (without base.html), uncomment the line below:
+    // const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
-function copyToken(inputId) {
-    const input = document.getElementById(inputId);
-    input.select();
-    document.execCommand('copy');
-    showToast('Activation link copied to clipboard!', 'success');
-}
+    function openIssueModal() { document.getElementById('issueModal').classList.add('active'); }
+    function openAdminModal() { document.getElementById('adminModal').classList.add('active'); }
+    function openSupervisorModal() { document.getElementById('supervisorModal').classList.add('active'); }
+    function openDeptModal() { document.getElementById('deptModal').classList.add('active'); }
+    function openSupervisorListModal() { document.getElementById('supervisorListModal').classList.add('active'); }
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) modal.classList.remove('active');
+    }
 
-// Issue Form Submission
-document.getElementById('issueForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch('/issue-intern-id/', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            showToast(`Generated Intern ID: ${data.intern_id}`, 'success');
-            closeModal('issueModal');
-            setTimeout(() => window.location.reload(), 1200);
-        } else {
-            showToast(data.error || 'Failed to issue Intern ID', 'error');
+    function copyToken(inputId) {
+        const input = document.getElementById(inputId);
+        input.select();
+        document.execCommand('copy');
+        showToast('Activation link copied to clipboard!', 'success');
+    }
+
+    // Generic confirm-modal helper. Configures icon/title/message/button for
+    // either a "danger" (remove) or "success" (restore) action, then wires
+    // the Confirm button to run the given callback on click.
+    function showConfirmModal({ variant, title, message, confirmLabel, onConfirm }) {
+        const iconWrap = document.getElementById('confirmModalIconWrap');
+        const icon = document.getElementById('confirmModalIcon');
+        const titleText = document.getElementById('confirmModalTitleText');
+        const messageEl = document.getElementById('confirmModalMessage');
+        const actionBtn = document.getElementById('confirmModalActionBtn');
+
+        const isDanger = variant === 'danger';
+        iconWrap.style.background = isDanger ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.12)';
+        icon.className = isDanger ? 'fa-solid fa-trash-can' : 'fa-solid fa-rotate-left';
+        icon.style.color = isDanger ? 'var(--accent-rose)' : 'var(--accent-emerald)';
+        actionBtn.style.background = isDanger ? 'var(--accent-rose)' : 'var(--accent-emerald)';
+
+        titleText.textContent = title;
+        messageEl.textContent = message;
+        actionBtn.textContent = confirmLabel;
+
+        // Replace the button node to clear any previously-attached listener,
+        // then attach the fresh one for this specific action/intern.
+        const freshBtn = actionBtn.cloneNode(true);
+        actionBtn.parentNode.replaceChild(freshBtn, actionBtn);
+        freshBtn.addEventListener('click', () => {
+            closeModal('confirmModal');
+            onConfirm();
+        });
+
+        document.getElementById('confirmModal').classList.add('active');
+    }
+
+    // Permanently Delete Supervisor
+    // Backend endpoint expected: POST /supervisor/<id>/delete/
+    function deleteSupervisor(supervisorId, supervisorName) {
+        showConfirmModal({
+            variant: 'danger',
+            title: 'Delete Supervisor',
+            message: `Permanently delete ${supervisorName}? This cannot be undone. Any interns currently assigned to this supervisor will become unassigned.`,
+            confirmLabel: 'Delete Permanently',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/supervisor/${supervisorId}/delete/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrftoken,
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+
+                    const responseText = await response.text();
+                    let data = {};
+
+                    try {
+                        data = responseText ? JSON.parse(responseText) : {};
+                    } catch (parseError) {
+                        console.error('Delete supervisor non-JSON response:', responseText);
+                        throw new Error(`Server returned ${response.status} instead of JSON.`);
+                    }
+
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || 'Failed to delete supervisor.');
+                    }
+
+                    showToast(
+                        data.message || `${supervisorName} deleted successfully.`,
+                        'success'
+                    );
+
+                    // Reload so the count, supervisor modal and assignment dropdown all refresh together.
+                    setTimeout(() => window.location.reload(), 800);
+
+                } catch (error) {
+                    console.error('Delete supervisor error:', error);
+                    showToast(
+                        error.message || 'Server error while deleting supervisor.',
+                        'error'
+                    );
+                }
+            }
+        });
+    }
+
+    // Remove / Offboard Intern (admin can remove any intern)
+    function removeIntern(internId, name) {
+        showConfirmModal({
+            variant: 'danger',
+            title: 'Remove Intern',
+            message: `Mark ${name}'s internship as complete and remove them from the active roster? Their submitted tasks and performance records will remain saved.`,
+            confirmLabel: 'Remove',
+            onConfirm: () => {
+                fetch(`/intern/${internId}/remove/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        showToast(`${name} offboarded successfully.`, 'success');
+                        setTimeout(() => window.location.reload(), 800);
+                    } else {
+                        showToast(data.error || 'Failed to offboard intern.', 'error');
+                    }
+                }).catch(() => {
+                    showToast('Server error processing request.', 'error');
+                });
+            }
+        });
+    }
+
+    // Restore Intern Back to Active Roster
+    function restoreIntern(internId, name) {
+        showConfirmModal({
+            variant: 'success',
+            title: 'Restore Intern',
+            message: `Restore ${name} back to the active intern roster?`,
+            confirmLabel: 'Restore',
+            onConfirm: () => {
+                fetch(`/intern/${internId}/restore/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        showToast(`${name} restored to active roster.`, 'success');
+                        setTimeout(() => window.location.reload(), 800);
+                    } else {
+                        showToast(data.error || 'Failed to restore intern.', 'error');
+                    }
+                }).catch(() => {
+                    showToast('Server error processing request.', 'error');
+                });
+            }
+        });
+    }
+
+    // Edit Intern
+    function openEditInternModal(internId, fullName, university, degree, supervisorName) {
+        document.getElementById('editInternId').value = internId;
+        document.getElementById('editInternName').value = fullName || '';
+        document.getElementById('editInternUniversity').value = university || '';
+        document.getElementById('editInternDegree').value = degree || '';
+        document.getElementById('editInternSupervisor').value = supervisorName || '';
+        document.getElementById('editInternModal').classList.add('active');
+    }
+
+    document.getElementById('editInternForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const internId = document.getElementById('editInternId').value;
+        const formData = new FormData(this);
+
+        fetch(`/intern/${internId}/update/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        })
+        .then(async (res) => {
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                throw new Error(`Server returned ${res.status} instead of JSON.`);
+            }
+
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Failed to update intern.');
+            }
+
+            return data;
+        })
+        .then((data) => {
+            showToast(data.message || 'Intern updated successfully.', 'success');
+            closeModal('editInternModal');
+            setTimeout(() => window.location.reload(), 800);
+        })
+        .catch((error) => {
+            console.error('Update intern error:', error);
+            showToast(error.message || 'Server error while updating intern.', 'error');
+        });
+    });
+
+    // Searchable supervisor picker for Issue Intern ID.
+    // Shows all supervisors on click/focus and filters them while typing.
+    const supervisorNameInput = document.getElementById('supervisorName');
+    const supervisorIdInput = document.getElementById('supervisorId');
+    const supervisorSuggestions = document.getElementById('supervisorSuggestions');
+    const supervisorPicker = document.getElementById('supervisorPicker');
+    const supervisorOptionButtons = Array.from(
+        document.querySelectorAll('#supervisorSuggestions .supervisor-suggestion')
+    );
+
+    function showSupervisorSuggestions() {
+        supervisorSuggestions.classList.add('active');
+    }
+
+    function hideSupervisorSuggestions() {
+        supervisorSuggestions.classList.remove('active');
+    }
+
+    function filterSupervisorSuggestions() {
+        const typedName = (supervisorNameInput.value || '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        // Clear the FK until the user selects an exact supervisor again.
+        supervisorIdInput.value = '';
+
+        supervisorOptionButtons.forEach((button) => {
+            const name = (button.dataset.name || '').toLowerCase();
+            const matches = !typedName || name.includes(typedName);
+            button.style.display = matches ? 'flex' : 'none';
+            if (matches) visibleCount += 1;
+        });
+
+        showSupervisorSuggestions();
+    }
+
+    function syncSupervisorId() {
+        const typedName = (supervisorNameInput.value || '').trim().toLowerCase();
+        supervisorIdInput.value = '';
+
+        if (!typedName) return;
+
+        const exactMatch = supervisorOptionButtons.find((button) =>
+            (button.dataset.name || '').trim().toLowerCase() === typedName
+        );
+
+        if (exactMatch) {
+            supervisorIdInput.value = exactMatch.dataset.id || '';
+        }
+    }
+
+    supervisorNameInput.addEventListener('focus', filterSupervisorSuggestions);
+    supervisorNameInput.addEventListener('click', filterSupervisorSuggestions);
+    supervisorNameInput.addEventListener('input', filterSupervisorSuggestions);
+    supervisorNameInput.addEventListener('change', syncSupervisorId);
+
+    supervisorOptionButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            supervisorNameInput.value = button.dataset.name || '';
+            supervisorIdInput.value = button.dataset.id || '';
+            hideSupervisorSuggestions();
+            supervisorNameInput.focus();
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        if (supervisorPicker && !supervisorPicker.contains(event.target)) {
+            hideSupervisorSuggestions();
         }
     });
-});
 
-// Supervisor Form Submission
-document.getElementById('supervisorForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch('/create-supervisor/', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            showToast(data.message, 'success');
-            closeModal('supervisorModal');
-            setTimeout(() => window.location.reload(), 1200);
-        } else {
-            showToast(data.error || 'Failed to create supervisor', 'error');
-        }
-    });
-});
+    // Issue Form Submission
+    document.getElementById('issueForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        syncSupervisorId();
 
-// Department Form Submission
-document.getElementById('deptForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch('/create-department/', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            showToast(data.message, 'success');
-            closeModal('deptModal');
-            setTimeout(() => window.location.reload(), 1200);
-        } else {
-            showToast(data.error || 'Failed to create department', 'error');
+        const typedSupervisor = (supervisorNameInput.value || '').trim();
+        if (typedSupervisor && !supervisorIdInput.value) {
+            showToast(
+                'Supervisor not found. Select an existing supervisor from the suggestions or create a new supervisor first.',
+                'error'
+            );
+            return;
         }
+
+        const formData = new FormData(this);
+        fetch('/issue-intern-id/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                showToast(`Generated Intern ID: ${data.intern_id}`, 'success');
+                closeModal('issueModal');
+                setTimeout(() => window.location.reload(), 1200);
+            } else {
+                showToast(data.error || 'Failed to issue Intern ID', 'error');
+            }
+        });
     });
-});
+
+    // Supervisor Form Submission
+    const supervisorForm = document.getElementById('supervisorForm');
+
+    if (supervisorForm) {
+        supervisorForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const form = this;
+            const formData = new FormData(form);
+            const submitBtn = document.getElementById('createSupervisorBtn');
+            const originalButtonHtml = submitBtn ? submitBtn.innerHTML : '';
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML =
+                    '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+            }
+
+            try {
+                const response = await fetch('/create-supervisor/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: formData
+                });
+
+                const responseText = await response.text();
+                let data = {};
+
+                try {
+                    data = responseText ? JSON.parse(responseText) : {};
+                } catch (parseError) {
+                    console.error(
+                        'Create supervisor non-JSON response:',
+                        responseText
+                    );
+                    throw new Error(
+                        `Server returned ${response.status} instead of JSON.`
+                    );
+                }
+
+                if (!response.ok || !data.success) {
+                    throw new Error(
+                        data.error || 'Unable to create supervisor.'
+                    );
+                }
+
+                showToast(
+                    data.message || 'Supervisor created successfully.',
+                    'success'
+                );
+
+                closeModal('supervisorModal');
+                form.reset();
+
+                const linkInput =
+                    document.getElementById('supervisorActivationLink');
+
+                const messageEl =
+                    document.getElementById('supervisorActivationMessage');
+
+                if (linkInput) {
+                    linkInput.value = data.activation_url || '';
+                }
+
+                if (messageEl) {
+                    messageEl.textContent =
+                        `${data.full_name || 'Supervisor'} was created successfully. ` +
+                        `Share the activation link below with ${data.email || 'the supervisor'}.`;
+                }
+
+                document
+                    .getElementById('supervisorActivationModal')
+                    .classList.add('active');
+
+            } catch (error) {
+                console.error('Create supervisor error:', error);
+
+                showToast(
+                    error.message || 'Unable to create supervisor.',
+                    'error'
+                );
+
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalButtonHtml;
+                }
+            }
+        });
+    }
+
+    // Administrator Form Submission
+    const adminForm = document.getElementById('adminForm');
+
+    if (adminForm) {
+        adminForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const form = this;
+            const formData = new FormData(form);
+            const password = String(formData.get('password') || '');
+            const confirmPassword = String(formData.get('confirm_password') || '');
+            const submitBtn = document.getElementById('createAdminBtn');
+
+            if (password.length < 8) {
+                showToast('Password must be at least 8 characters.', 'error');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showToast('Passwords do not match.', 'error');
+                return;
+            }
+
+            const originalButtonHtml = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+            }
+
+            try {
+                const response = await fetch('/create-admin/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrftoken },
+                    body: formData
+                });
+
+                const responseText = await response.text();
+                let data = {};
+
+                try {
+                    data = responseText ? JSON.parse(responseText) : {};
+                } catch (parseError) {
+                    console.error('Create admin non-JSON response:', responseText);
+                    throw new Error(`Server returned ${response.status} instead of JSON.`);
+                }
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Unable to create admin account.');
+                }
+
+                showToast(data.message || 'Administrator account created successfully.', 'success');
+                closeModal('adminModal');
+                form.reset();
+
+                setTimeout(() => { window.location.reload(); }, 900);
+
+            } catch (error) {
+                console.error('Create admin error:', error);
+                showToast(error.message || 'Unable to create administrator account.', 'error');
+
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalButtonHtml;
+                }
+            }
+        });
+    }
+
+    // Department Form Submission
+    document.getElementById('deptForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch('/create-department/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                closeModal('deptModal');
+                setTimeout(() => window.location.reload(), 1200);
+            } else {
+                showToast(data.error || 'Failed to create department', 'error');
+            }
+        });
+    });
 </script>
 {% endblock %}

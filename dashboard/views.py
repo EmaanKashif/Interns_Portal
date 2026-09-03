@@ -1,4 +1,5 @@
 import datetime
+import os
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
@@ -11,6 +12,78 @@ from academics.models import DailyTask, Department, InternshipWeek, TaskSubmissi
 from accounts.decorators import role_required
 from accounts.models import InternProfile, SupervisorProfile, User
 from .models import Message, Notification
+
+# ==========================================
+# Official IFL Internship Program Rotation Schedule Matrix
+# ==========================================
+ROTATION_SCHEDULES = {
+    'EMAAN KASHIF': ['ERP', 'Software dev', 'DCI', 'IT Operations', 'Networks & Security', 'Report & Presentation'],
+    'MENEHIL': ['ERP', 'Software dev', 'DCI', 'IT Operations', 'Networks & Security', 'Report & Presentation'],
+    'MUHAMMAD DANIYAL': ['IT Operations', 'DCI', 'Networks & Security', 'Software dev', 'ERP', 'Report & Presentation'],
+    'NIAZ SHAH': ['IT Operations', 'DCI', 'Networks & Security', 'Software dev', 'ERP', 'Report & Presentation'],
+    'HASSAN TARIQ': ['DCI', 'Networks & Security', 'Software dev', 'ERP', 'IT Operations', 'Report & Presentation'],
+    'SUBHAN': ['Networks & Security', 'DCI', 'Software dev', 'ERP', 'IT Operations', 'Report & Presentation'],
+    'Ayesha': ['DCI','Software dev','ERP','IT Operations','Networks & Security','Report & Presentation']
+}
+
+DEFAULT_ROTATION = ['ERP', 'Software dev', 'DCI', 'IT Operations', 'Networks & Security', 'Report & Presentation']
+
+
+def build_full_intern_schedule(profile):
+    """
+    Automated Helper: Generates all 6 rotation weeks and default daily tasks 
+    for an intern profile based on the official IFL schedule matrix.
+    """
+    if profile.weeks.exists():
+        return  # Avoid duplicating if weeks already exist
+
+    normalized_name = profile.full_name.upper().strip()
+    dept_names = ROTATION_SCHEDULES.get(normalized_name, DEFAULT_ROTATION)
+
+    curr_start = profile.start_date or datetime.date(2026, 8, 25)
+
+    for week_num, dept_name in enumerate(dept_names, start=1):
+        dept_obj, _ = Department.objects.get_or_create(
+            name=dept_name,
+            defaults={'description': f'{dept_name} Domain Rotation Focus Area'}
+        )
+
+        curr_end = curr_start + datetime.timedelta(days=6)
+
+        week_obj = InternshipWeek.objects.create(
+            intern=profile,
+            department=dept_obj,
+            week_number=week_num,
+            start_date=curr_start,
+            end_date=curr_end
+        )
+
+        # Build initial topic & daily tasks
+        topic = Topic.objects.create(
+            week=week_obj,
+            title=f"Orientation & {dept_name} Setup",
+            order=1
+        )
+
+        DailyTask.objects.create(
+            topic=topic,
+            day_number=1,
+            title="System Access & Environment Setup",
+            description=f"Access workspace tools and review initial department guidelines for {dept_name}.",
+            due_date=curr_start,
+            status=DailyTask.STATUS_PENDING
+        )
+
+        DailyTask.objects.create(
+            topic=topic,
+            day_number=2,
+            title="Core Concepts & Architecture Review",
+            description=f"Study foundational architecture documentation and guidelines for {dept_name}.",
+            due_date=curr_start + datetime.timedelta(days=1),
+            status=DailyTask.STATUS_PENDING
+        )
+
+        curr_start = curr_end + datetime.timedelta(days=1)
 
 
 @login_required
@@ -28,37 +101,97 @@ def dashboard_router(request):
 
 @role_required('admin')
 def admin_dashboard(request):
-    """
-    Dedicated Admin Dashboard:
-    Overview of system metrics, intern onboarding, supervisor management, and department focus areas.
-    """
-    total_interns = InternProfile.objects.count()
-    activated_interns = InternProfile.objects.filter(is_activated=True).count()
-    pending_activations = InternProfile.objects.filter(is_activated=False).count()
-    total_supervisors = SupervisorProfile.objects.count()
-    total_departments = Department.objects.count()
+  """Dedicated Admin Dashboard:
+  Overview of system metrics, intern onboarding, supervisor management, and
+  department focus areas.
+  """
+  total_interns = InternProfile.objects.filter(
+    is_active=True
+    ).count()
 
-    interns = InternProfile.objects.select_related('supervisor__user', 'user').all()
-    supervisors = SupervisorProfile.objects.select_related('user').all()
-    departments = Department.objects.all()
+  activated_interns = InternProfile.objects.filter(
+    is_active=True,
+    is_activated=True
+    ).count()
 
-    context = {
-        'total_interns': total_interns,
-        'activated_interns': activated_interns,
-        'pending_activations': pending_activations,
-        'total_supervisors': total_supervisors,
-        'total_departments': total_departments,
-        'interns': interns,
-        'supervisors': supervisors,
-        'departments': departments,
-    }
-    return render(request, 'dashboard/admin_dashboard.html', context)
+  pending_activations = InternProfile.objects.filter(
+    is_active=True,
+    is_activated=False
+   ).count()
+  total_departments = Department.objects.count()
+
+  # Ensure every User with role='supervisor' has a linked SupervisorProfile
+  supervisor_users = User.objects.filter(role=User.ROLE_SUPERVISOR)
+  for sup_user in supervisor_users:
+    SupervisorProfile.objects.get_or_create(
+        user=sup_user,
+        defaults={'department_focus': 'Enterprise Operations'},
+    )
+
+  # Fetch all supervisor profiles with linked user data
+  supervisors = SupervisorProfile.objects.select_related('user').all()
+  total_supervisors = supervisors.count()
+
+  interns = InternProfile.objects.select_related(
+      'supervisor__user', 'user'
+  ).all()
+  departments = Department.objects.all()
+
+  context = {
+      'total_interns': total_interns,
+      'activated_interns': activated_interns,
+      'pending_activations': pending_activations,
+      'total_supervisors': total_supervisors,
+      'total_departments': total_departments,
+      'interns': interns,
+      'supervisors': supervisors,
+      'departments': departments,
+  }
+  return render(request, 'dashboard/admin_dashboard.html', context)
 
 
 @role_required('intern')
 def intern_dashboard(request):
     """Intern dashboard displaying current rotation week, tasks, submissions, and progress."""
     profile = get_object_or_404(InternProfile, user=request.user)
+    today = timezone.localdate()
+
+    ended_weeks = profile.weeks.filter(
+        end_date__lt=today
+    )
+
+    for week in ended_weeks:
+
+        notification_title = (
+            f"Week {week.week_number} Completed"
+        )
+
+        # Prevent duplicate notification every time
+        # the intern refreshes the dashboard
+        already_notified = Notification.objects.filter(
+            recipient=request.user,
+            title=notification_title
+        ).exists()
+
+        if not already_notified:
+
+            Notification.objects.create(
+                recipient=request.user,
+                sender=None,
+                title=notification_title,
+                message=(
+                    f"Your Week {week.week_number} "
+                    f"({week.department.name}) has ended. "
+                    f"You can now review your completed work "
+                    f"and continue to the next rotation week."
+                ),
+                link="/intern/",
+                notification_type=Notification.TYPE_TASK
+            )
+
+    # Ensure 6-week rotation is populated
+    if not profile.weeks.exists():
+        build_full_intern_schedule(profile)
 
     current_week = profile.weeks.order_by('-week_number').first()
     all_weeks = profile.weeks.prefetch_related('topics__tasks__submissions').order_by('week_number')
@@ -75,7 +208,6 @@ def intern_dashboard(request):
     pending_tasks = all_tasks.filter(status=DailyTask.STATUS_PENDING).count()
     progress_pct = round((completed_tasks / total_tasks) * 100, 1) if total_tasks else 0
 
-    # Unread notifications count
     unread_notifications_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
 
     context = {
@@ -95,23 +227,38 @@ def intern_dashboard(request):
 
 @role_required('supervisor')
 def supervisor_dashboard(request):
-    """Supervisor dashboard managing assigned interns, task reviews, and message channels."""
+    """Supervisor dashboard managing active and offboarded assigned interns, task reviews, and messages."""
     profile = get_object_or_404(SupervisorProfile, user=request.user)
-    interns = profile.interns.select_related('user').all()
+    
+    # Check if supervisor toggled offboarded/completed view
+    show_archived = request.GET.get('archived') == 'true'
+    target_active_status = not show_archived
+
+    # Fetch interns assigned to this supervisor (handles both direct profile link & fallback name match)
+    interns = InternProfile.objects.filter(
+        Q(supervisor=profile) | Q(custom_supervisor_name__icontains=request.user.first_name),
+        is_active=target_active_status
+    ).select_related('user').distinct()
 
     intern_rows = []
     total_cohort_tasks = 0
     total_cohort_completed = 0
 
     for intern in interns:
+        if not intern.weeks.exists():
+            build_full_intern_schedule(intern)
+
         tasks = DailyTask.objects.filter(topic__week__intern=intern)
         total = tasks.count()
         completed = tasks.filter(status=DailyTask.STATUS_COMPLETED).count()
         in_progress = tasks.filter(status=DailyTask.STATUS_IN_PROGRESS).count()
         pct = round((completed / total) * 100, 1) if total else 0
 
-        # Unread messages from this intern
-        unread_msg = Message.objects.filter(sender=intern.user, recipient=request.user, is_read=False).count() if intern.user else 0
+        unread_msg = Message.objects.filter(
+            sender=intern.user, 
+            recipient=request.user, 
+            is_read=False
+        ).count() if intern.user else 0
 
         total_cohort_tasks += total
         total_cohort_completed += completed
@@ -128,6 +275,10 @@ def supervisor_dashboard(request):
     cohort_pct = round((total_cohort_completed / total_cohort_tasks) * 100, 1) if total_cohort_tasks else 0
     departments = Department.objects.all()
     supervisors = SupervisorProfile.objects.select_related('user').all()
+    unread_messages_count = Message.objects.filter(
+        recipient=request.user,
+        is_read=False
+    ).count()
 
     context = {
         'profile': profile,
@@ -138,17 +289,17 @@ def supervisor_dashboard(request):
         'total_cohort_tasks': total_cohort_tasks,
         'departments': departments,
         'supervisors': supervisors,
+        'show_archived': show_archived,
+        'unread_messages_count': unread_messages_count,
     }
     return render(request, 'dashboard/supervisor_dashboard.html', context)
-
 
 @login_required
 @require_POST
 def issue_intern_id_api(request):
     """
     API endpoint allowing Admins or Supervisors to issue a new Intern ID & activation token.
-    Auto-generates Intern Profile, Intern ID (e.g. INT-2026-0004), random UUID4 token,
-    and sets up initial rotation curriculum weeks and daily tasks.
+    Automatically provisions the full 6-week IFL rotation schedule.
     """
     user = request.user
     if user.role not in [User.ROLE_ADMIN, User.ROLE_SUPERVISOR] and not user.is_superuser:
@@ -157,7 +308,6 @@ def issue_intern_id_api(request):
     full_name = request.POST.get('full_name', '').strip()
     university = request.POST.get('university', '').strip()
     degree = request.POST.get('degree', '').strip()
-    department_id = request.POST.get('department_id')
     supervisor_id = request.POST.get('supervisor_id')
     start_date_str = request.POST.get('start_date')
     end_date_str = request.POST.get('end_date')
@@ -166,11 +316,11 @@ def issue_intern_id_api(request):
         return JsonResponse({'success': False, 'error': 'Full name, university, and degree domain are required.'}, status=400)
 
     try:
-        start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else datetime.date.today()
-        end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else start_date + datetime.timedelta(days=60)
+        start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else datetime.date(2026, 8, 25)
+        end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else start_date + datetime.timedelta(days=42)
     except ValueError:
-        start_date = datetime.date.today()
-        end_date = start_date + datetime.timedelta(days=60)
+        start_date = datetime.date(2026, 8, 25)
+        end_date = start_date + datetime.timedelta(days=42)
 
     supervisor = None
     if supervisor_id:
@@ -178,9 +328,6 @@ def issue_intern_id_api(request):
     elif user.role == User.ROLE_SUPERVISOR:
         supervisor = getattr(user, 'supervisor_profile', None)
 
-    department = Department.objects.filter(pk=department_id).first() if department_id else Department.objects.first()
-
-    # Create Intern Profile (auto-generates intern_id and activation_token)
     profile = InternProfile.objects.create(
         full_name=full_name,
         university=university,
@@ -192,31 +339,8 @@ def issue_intern_id_api(request):
     )
     profile.generate_activation_token()
 
-    # Build initial curriculum week & sample daily tasks if department exists
-    if department:
-        week1 = InternshipWeek.objects.create(
-            intern=profile,
-            department=department,
-            week_number=1,
-            start_date=start_date,
-            end_date=start_date + datetime.timedelta(days=6)
-        )
-
-        t1 = Topic.objects.create(week=week1, title=f"Orientation & {department.name} Setup", order=1)
-        DailyTask.objects.create(
-            topic=t1, day_number=1,
-            title="System Access & Environment Setup",
-            description="Access your workspace tools and review initial department guidelines.",
-            due_date=start_date,
-            status=DailyTask.STATUS_PENDING
-        )
-        DailyTask.objects.create(
-            topic=t1, day_number=2,
-            title="Core Concepts & Architecture Review",
-            description="Study the foundational architecture documentation.",
-            due_date=start_date + datetime.timedelta(days=1),
-            status=DailyTask.STATUS_PENDING
-        )
+    # Automatically generate full 6-week rotation schedule
+    build_full_intern_schedule(profile)
 
     scheme = 'https' if request.is_secure() else 'http'
     host = request.get_host()
@@ -235,44 +359,666 @@ def issue_intern_id_api(request):
 
 @login_required
 @require_POST
-def create_supervisor_api(request):
-    """API endpoint allowing Admins to create a new Supervisor user & profile."""
-    if request.user.role != User.ROLE_ADMIN and not request.user.is_superuser:
+def create_custom_week_api(request):
+    """
+    API allowing Supervisors and Admins to add/edit rotation weeks and daily tasks 
+    directly from the web portal UI without touching the code.
+    """
+    user = request.user
+    if user.role not in [User.ROLE_ADMIN, User.ROLE_SUPERVISOR] and not user.is_superuser:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-    first_name = request.POST.get('first_name', '').strip()
-    last_name = request.POST.get('last_name', '').strip()
-    email = request.POST.get('email', '').strip().lower()
-    password = request.POST.get('password', '').strip()
-    department_focus = request.POST.get('department_focus', '').strip()
+    intern_id = request.POST.get('intern_id')
+    dept_id = request.POST.get('department_id')
+    week_number = request.POST.get('week_number')
+    topic_title = request.POST.get('topic_title', 'Weekly Domain Overview').strip()
+    task_title = request.POST.get('task_title', '').strip()
+    task_desc = request.POST.get('task_description', '').strip()
+    start_date_str = request.POST.get('start_date')
 
-    if not email or not password or not first_name:
-        return JsonResponse({'success': False, 'error': 'First name, email, and password are required.'}, status=400)
+    intern = get_object_or_404(InternProfile, pk=intern_id)
+    department = get_object_or_404(Department, pk=dept_id)
 
-    if User.objects.filter(email=email).exists():
-        return JsonResponse({'success': False, 'error': 'User with this email already exists.'}, status=400)
+    try:
+        start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else datetime.date.today()
+    except ValueError:
+        start_date = datetime.date.today()
 
-    username = email.split('@')[0]
-    user = User.objects.create_user(
+    end_date = start_date + datetime.timedelta(days=6)
+
+    week_obj, _ = InternshipWeek.objects.get_or_create(
+        intern=intern,
+        week_number=week_number,
+        defaults={
+            'department': department,
+            'start_date': start_date,
+            'end_date': end_date
+        }
+    )
+    week_obj.department = department
+    week_obj.save()
+
+    topic = Topic.objects.create(week=week_obj, title=topic_title, order=1)
+
+    if task_title:
+        DailyTask.objects.create(
+            topic=topic,
+            day_number=1,
+            title=task_title,
+            description=task_desc,
+            due_date=start_date,
+            status=DailyTask.STATUS_PENDING
+        )
+
+    return JsonResponse({'success': True, 'message': f'Week {week_number} ({department.name}) updated successfully.'})
+
+
+@login_required
+@require_POST
+def update_intern_supervisor_api(request, intern_id):
+    """API endpoint allowing Admins or Supervisors to inline-update an intern's supervisor."""
+    user = request.user
+    if user.role not in [User.ROLE_ADMIN, User.ROLE_SUPERVISOR] and not user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+
+    intern = get_object_or_404(InternProfile, pk=intern_id)
+    sup_name = request.POST.get('supervisor_name', '').strip()
+
+    if not sup_name:
+        intern.supervisor = None
+        intern.custom_supervisor_name = ''
+    else:
+        supervisor_obj = SupervisorProfile.objects.filter(
+            Q(user__first_name__icontains=sup_name) |
+            Q(user__last_name__icontains=sup_name) |
+            Q(user__username__icontains=sup_name)
+        ).first()
+
+        if supervisor_obj:
+            intern.supervisor = supervisor_obj
+            intern.custom_supervisor_name = ''
+        else:
+            intern.supervisor = None
+            intern.custom_supervisor_name = sup_name
+
+    intern.save()
+    return JsonResponse({'success': True, 'message': 'Supervisor updated successfully.'})
+
+@login_required
+@require_POST
+def remove_intern_api(request, intern_id):
+    # Admin / superuser can remove any intern
+    if request.user.role == User.ROLE_ADMIN or request.user.is_superuser:
+        intern = get_object_or_404(
+            InternProfile,
+            id=intern_id
+        )
+
+    # Supervisor can only remove their assigned intern
+    elif request.user.role == User.ROLE_SUPERVISOR:
+        profile = get_object_or_404(
+            SupervisorProfile,
+            user=request.user
+        )
+
+        intern = get_object_or_404(
+            InternProfile,
+            id=intern_id,
+            supervisor=profile
+        )
+
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    # Soft remove / archive intern
+    intern.is_active = False
+    intern.save(update_fields=['is_active'])
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Intern removed successfully.'
+    })
+
+@login_required
+@require_POST
+def restore_intern_api(request, intern_id):
+    # Admin / superuser can restore any intern
+    if request.user.role == User.ROLE_ADMIN or request.user.is_superuser:
+        intern = get_object_or_404(
+            InternProfile,
+            id=intern_id
+        )
+
+    # Supervisor can only restore their assigned intern
+    elif request.user.role == User.ROLE_SUPERVISOR:
+        profile = get_object_or_404(
+            SupervisorProfile,
+            user=request.user
+        )
+
+        intern = get_object_or_404(
+            InternProfile,
+            id=intern_id,
+            supervisor=profile
+        )
+
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    # Restore intern
+    intern.is_active = True
+    intern.save(update_fields=['is_active'])
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Intern restored successfully.'
+    })
+
+@login_required
+@require_POST
+def intern_edit_task_api(request, task_id):
+
+    if request.user.role != User.ROLE_INTERN:
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    intern = get_object_or_404(
+        InternProfile,
+        user=request.user
+    )
+
+    task = get_object_or_404(
+        DailyTask,
+        id=task_id,
+        topic__week__intern=intern
+    )
+
+    title = request.POST.get('title', '').strip()
+    description = request.POST.get(
+        'description',
+        ''
+    ).strip()
+    due_date = request.POST.get(
+        'due_date',
+        ''
+    ).strip()
+
+    if not title:
+        return JsonResponse({
+            'success': False,
+            'error': 'Task title is required.'
+        }, status=400)
+
+    task.title = title
+    task.description = description
+
+    if due_date:
+        try:
+            task.due_date = datetime.datetime.strptime(
+                due_date,
+                '%Y-%m-%d'
+            ).date()
+        except ValueError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid due date.'
+            }, status=400)
+
+    task.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Task updated successfully.'
+    })
+
+@login_required
+@require_POST
+def intern_add_day_api(request, week_id):
+    """
+    Allows an intern to add a new daily task row
+    to one of their own internship weeks.
+    """
+
+    # Get logged-in intern
+    intern = get_object_or_404(
+        InternProfile,
+        user=request.user
+    )
+
+    # IMPORTANT:
+    # Intern can only add a day to their own week
+    week = get_object_or_404(
+        InternshipWeek,
+        id=week_id,
+        intern=intern
+    )
+
+    # Get the first/main topic of this week
+    topic = week.topics.order_by('order').first()
+
+    # Safety fallback in case a week somehow has no topic
+    if not topic:
+        topic = Topic.objects.create(
+            week=week,
+            title=f"{week.department.name} Tasks",
+            order=1
+        )
+
+    # Find the highest existing day number in THIS WEEK
+    last_task = (
+        DailyTask.objects
+        .filter(topic__week=week)
+        .order_by('-day_number')
+        .first()
+    )
+
+    if last_task:
+        next_day_number = last_task.day_number + 1
+    else:
+        next_day_number = 1
+
+    # Optional protection:
+    # an internship week normally should not exceed 7 days
+    if next_day_number > 7:
+        return JsonResponse({
+            'success': False,
+            'error': 'A week cannot contain more than 7 days.'
+        }, status=400)
+
+    # Calculate the date for the new day
+    due_date = week.start_date + datetime.timedelta(
+        days=next_day_number - 1
+    )
+
+    # Don't go past week end date
+    if due_date > week.end_date:
+        due_date = week.end_date
+
+    # Create editable placeholder task
+    task = DailyTask.objects.create(
+        topic=topic,
+        day_number=next_day_number,
+        title=f"Day {next_day_number} Task",
+        description="Add task description...",
+        due_date=due_date,
+        status=DailyTask.STATUS_PENDING
+    )
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Day {next_day_number} added successfully.',
+        'task_id': task.id,
+        'day_number': task.day_number
+    })
+
+
+@login_required
+@require_POST
+def update_intern_api(request, intern_id):
+    # Only admin/superuser can edit intern details
+    if request.user.role != User.ROLE_ADMIN and not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    intern = get_object_or_404(InternProfile, id=intern_id)
+
+    # Get submitted values
+    full_name = request.POST.get('full_name', '').strip()
+    university = request.POST.get('university', '').strip()
+    degree = request.POST.get('degree', '').strip()
+    supervisor_name = request.POST.get('supervisor_name', '').strip()
+
+    # Required fields
+    if not full_name:
+        return JsonResponse({
+            'success': False,
+            'error': 'Full name is required.'
+        }, status=400)
+
+    if not university:
+        return JsonResponse({
+            'success': False,
+            'error': 'University is required.'
+        }, status=400)
+
+    if not degree:
+        return JsonResponse({
+            'success': False,
+            'error': 'Degree / domain is required.'
+        }, status=400)
+
+    # Update normal intern details
+    intern.full_name = full_name
+    intern.university = university
+    intern.degree = degree
+
+    # ------------------------------------
+    # UPDATE SUPERVISOR
+    # ------------------------------------
+
+    # Blank field = unassign supervisor
+    if not supervisor_name:
+        intern.supervisor = None
+        intern.custom_supervisor_name = ''
+
+    else:
+        matched_supervisor = None
+
+        # Search existing supervisors by their displayed full name
+        supervisors = SupervisorProfile.objects.select_related('user').all()
+
+        for supervisor in supervisors:
+            existing_name = supervisor.user.get_full_name().strip()
+
+            # If first/last name is empty, use username
+            if not existing_name:
+                existing_name = supervisor.user.username
+
+            if existing_name.lower() == supervisor_name.lower():
+                matched_supervisor = supervisor
+                break
+
+        # Existing supervisor selected
+        if matched_supervisor:
+            intern.supervisor = matched_supervisor
+            intern.custom_supervisor_name = ''
+
+        # Manually typed supervisor
+        else:
+            intern.supervisor = None
+            intern.custom_supervisor_name = supervisor_name
+
+    intern.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Intern details updated successfully.'
+    })
+
+@login_required
+@require_POST
+def update_task_api(request, task_id):
+    """Supervisor edits a daily task's title, description, or due date — reflects immediately on intern dashboard."""
+    task = get_object_or_404(DailyTask, id=task_id, topic__week__intern__supervisor__user=request.user)
+    title = request.POST.get('title', '').strip()
+    description = request.POST.get('description', '').strip()
+    due_date_str = request.POST.get('due_date', '').strip()
+
+    if title:
+        task.title = title
+    task.description = description
+    if due_date_str:
+        try:
+            task.due_date = datetime.datetime.strptime(due_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Invalid date format.'}, status=400)
+
+    task.save()
+    return JsonResponse({'success': True, 'title': task.title, 'description': task.description, 'due_date': str(task.due_date) if task.due_date else None})
+
+
+@login_required
+@require_POST
+def create_admin_api(request):
+    """Allows an existing admin to create another admin account."""
+
+    if (
+        request.user.role != User.ROLE_ADMIN
+        and not request.user.is_superuser
+    ):
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    first_name = request.POST.get(
+        'first_name',
+        ''
+    ).strip()
+
+    last_name = request.POST.get(
+        'last_name',
+        ''
+    ).strip()
+
+    email = request.POST.get(
+        'email',
+        ''
+    ).strip().lower()
+
+    password = request.POST.get(
+        'password',
+        ''
+    )
+
+    confirm_password = request.POST.get(
+        'confirm_password',
+        ''
+    )
+
+    if not first_name or not email or not password:
+        return JsonResponse({
+            'success': False,
+            'error': 'First name, email and password are required.'
+        }, status=400)
+
+    if password != confirm_password:
+        return JsonResponse({
+            'success': False,
+            'error': 'Passwords do not match.'
+        }, status=400)
+
+    if len(password) < 8:
+        return JsonResponse({
+            'success': False,
+            'error': 'Password must be at least 8 characters.'
+        }, status=400)
+
+    if User.objects.filter(email__iexact=email).exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'An account with this email already exists.'
+        }, status=400)
+
+    # Generate a unique username from the email
+    base_username = email.split('@')[0]
+    username = base_username
+    counter = 1
+
+    while User.objects.filter(username=username).exists():
+        username = f'{base_username}{counter}'
+        counter += 1
+
+    admin_user = User.objects.create_user(
         username=username,
         email=email,
         password=password,
         first_name=first_name,
         last_name=last_name,
-        role=User.ROLE_SUPERVISOR,
+        role=User.ROLE_ADMIN,
         is_staff=True
-    )
-
-    SupervisorProfile.objects.create(
-        user=user,
-        department_focus=department_focus or "Enterprise Operations"
     )
 
     return JsonResponse({
         'success': True,
-        'message': f"Supervisor account created for {user.get_full_name()} ({user.email})."
+        'message': (
+            f'Admin account created successfully for '
+            f'{admin_user.get_full_name() or admin_user.email}.'
+        )
     })
 
+@login_required
+@require_POST
+def create_supervisor_api(request):
+    """
+    Allow admin to add a supervisor using:
+    - full name
+    - real email
+    - department
+
+    The supervisor account is created without a usable password.
+    A one-time activation link is returned so the supervisor can
+    set their own password securely.
+    """
+
+    if request.user.role != User.ROLE_ADMIN and not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    full_name = request.POST.get('full_name', '').strip()
+    email = request.POST.get('email', '').strip().lower()
+    department_focus = request.POST.get(
+        'department_focus',
+        ''
+    ).strip()
+
+    # -----------------------------
+    # Validation
+    # -----------------------------
+    if not full_name:
+        return JsonResponse({
+            'success': False,
+            'error': 'Supervisor name is required.'
+        }, status=400)
+
+    if not email:
+        return JsonResponse({
+            'success': False,
+            'error': 'Supervisor email is required.'
+        }, status=400)
+
+    if User.objects.filter(email__iexact=email).exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'A user with this email already exists.'
+        }, status=400)
+
+    # -----------------------------
+    # Split full name
+    # -----------------------------
+    name_parts = full_name.split()
+
+    first_name = name_parts[0]
+
+    if len(name_parts) > 1:
+        last_name = ' '.join(name_parts[1:])
+    else:
+        last_name = ''
+
+    # -----------------------------
+    # Generate unique username
+    # -----------------------------
+    base_username = full_name.lower().replace(' ', '_')
+
+    username = base_username
+    counter = 1
+
+    while User.objects.filter(username__iexact=username).exists():
+        username = f"{base_username}_{counter}"
+        counter += 1
+
+    # -----------------------------
+    # Create supervisor User
+    # -----------------------------
+    user = User(
+        username=username,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        role=User.ROLE_SUPERVISOR,
+        is_staff=False,
+
+        # Supervisor cannot login until activation
+        is_active=False
+    )
+
+    # Admin does NOT choose supervisor password
+    user.set_unusable_password()
+    user.save()
+
+    # -----------------------------
+    # Create Supervisor Profile
+    # -----------------------------
+    profile = SupervisorProfile.objects.create(
+        user=user,
+        department_focus=department_focus or "General",
+        is_activated=False
+    )
+
+    # -----------------------------
+    # Generate activation token
+    # -----------------------------
+    token = profile.generate_activation_token()
+
+    # -----------------------------
+    # Build activation link
+    # -----------------------------
+    activation_url = request.build_absolute_uri(
+        f'/accounts/supervisor-activate/?token={token}'
+    )
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Supervisor {full_name} added successfully.',
+        'full_name': full_name,
+        'email': email,
+        'supervisor_id': profile.id,
+        'activation_url': activation_url
+    })
+
+@login_required
+@require_POST
+def delete_supervisor_api(request, supervisor_id):
+
+    if request.user.role != User.ROLE_ADMIN and not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    supervisor = get_object_or_404(
+        SupervisorProfile,
+        id=supervisor_id
+    )
+
+    supervisor_name = (
+        supervisor.user.get_full_name().strip()
+        or supervisor.user.username
+    )
+
+    user = supervisor.user
+
+    # Keep interns — only remove their supervisor assignment.
+    InternProfile.objects.filter(
+        supervisor=supervisor
+    ).update(
+        supervisor=None,
+        custom_supervisor_name=''
+    )
+
+    # Delete supervisor profile
+    supervisor.delete()
+
+    # Delete the internal User created for this supervisor
+    if user:
+        user.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'{supervisor_name} deleted successfully.'
+    })
 
 @login_required
 @require_POST
@@ -304,10 +1050,7 @@ def create_department_api(request):
 @login_required
 @require_POST
 def send_message_api(request):
-    """
-    API for Interns to message their assigned Supervisor, or Supervisor to message their assigned Intern.
-    Enforces strict backend RBAC messaging boundaries.
-    """
+    """API for Interns and Supervisors to communicate."""
     user = request.user
     recipient_id = request.POST.get('recipient_id')
     content = request.POST.get('content', '').strip()
@@ -318,7 +1061,6 @@ def send_message_api(request):
 
     recipient = get_object_or_404(User, pk=recipient_id)
 
-    # Scoped access control check
     allowed = False
     if user.role == User.ROLE_INTERN:
         intern_profile = getattr(user, 'intern_profile', None)
@@ -334,24 +1076,22 @@ def send_message_api(request):
         allowed = True
 
     if not allowed:
-        return JsonResponse({'success': False, 'error': 'Permission denied. You can only communicate with your assigned supervisor/intern.'}, status=403)
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     task = DailyTask.objects.filter(pk=task_id).first() if task_id else None
 
-    msg = Message.objects.create(
-        sender=user,
-        recipient=recipient,
-        content=content,
-        task=task
-    )
+    msg = Message.objects.create(sender=user, recipient=recipient, content=content, task=task)
 
-    # Generate Notification
     Notification.objects.create(
         recipient=recipient,
         sender=user,
         title=f"New Message from {user.get_full_name() or user.username}",
         message=content[:100] + ('...' if len(content) > 100 else ''),
-        link="/intern/" if recipient.role == User.ROLE_INTERN else "/supervisor/",
+        link=(
+            f"/supervisor/?chat={user.id}"
+            if recipient.role == User.ROLE_SUPERVISOR
+            else f"/intern/?chat={user.id}"
+        ),
         notification_type=Notification.TYPE_MESSAGE
     )
 
@@ -366,10 +1106,7 @@ def send_message_api(request):
 
 @login_required
 def get_messages_api(request):
-    """
-    API returning conversation history between logged-in user and target user.
-    Backend RBAC enforced. Marks incoming messages as read.
-    """
+    """API returning conversation history."""
     target_user_id = request.GET.get('target_user_id')
     if not target_user_id:
         return JsonResponse({'success': False, 'error': 'Target user required.'}, status=400)
@@ -377,7 +1114,6 @@ def get_messages_api(request):
     target_user = get_object_or_404(User, pk=target_user_id)
     user = request.user
 
-    # Permission check
     allowed = False
     if user.role == User.ROLE_INTERN:
         intern_profile = getattr(user, 'intern_profile', None)
@@ -399,7 +1135,6 @@ def get_messages_api(request):
         (Q(sender=user, recipient=target_user) | Q(sender=target_user, recipient=user))
     ).order_by('created_at')
 
-    # Mark incoming as read
     Message.objects.filter(sender=target_user, recipient=user, is_read=False).update(is_read=True)
 
     messages_data = []
@@ -422,11 +1157,25 @@ def get_messages_api(request):
 
 @login_required
 def get_notifications_api(request):
-    """API returning notifications for the logged-in user."""
-    notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')[:15]
-    unread_count = notifications.filter(is_read=False).count()
+    """API returning notifications."""
+
+    # Get all notifications for current user first
+    base_notifications = Notification.objects.filter(
+        recipient=request.user
+    )
+
+    # Count unread BEFORE limiting results
+    unread_count = base_notifications.filter(
+        is_read=False
+    ).count()
+
+    # Only show latest 15 notifications
+    notifications = base_notifications.order_by(
+        '-created_at'
+    )[:15]
 
     data = []
+
     for n in notifications:
         data.append({
             'id': n.id,
@@ -435,20 +1184,26 @@ def get_notifications_api(request):
             'link': n.link or '#',
             'type': n.notification_type,
             'is_read': n.is_read,
-            'created_at': n.created_at.strftime('%b %d, %H:%M')
-        })
+            'created_at': n.created_at.strftime('%b %d, %H:%M'),
 
+            # Required so clicking a message notification can open chat
+            'sender_id': n.sender.id if n.sender else None,
+            'sender_name': (
+                n.sender.get_full_name() or n.sender.username
+                if n.sender
+                else ''
+            ),
+        })
     return JsonResponse({
         'success': True,
         'unread_count': unread_count,
         'notifications': data
     })
 
-
 @login_required
 @require_POST
 def mark_notification_read_api(request, notification_id):
-    """Marks a notification as read."""
+    """Marks notification as read."""
     n = get_object_or_404(Notification, pk=notification_id, recipient=request.user)
     n.is_read = True
     n.save()
@@ -458,9 +1213,9 @@ def mark_notification_read_api(request, notification_id):
 @login_required
 @require_POST
 def update_task_status(request, task_id):
-    """AJAX endpoint allowing interns to update task status in real time."""
+    """AJAX endpoint for interns to update task status in real time."""
     task = get_object_or_404(DailyTask, pk=task_id)
-    
+
     intern_profile = getattr(request.user, 'intern_profile', None)
     supervisor_profile = getattr(request.user, 'supervisor_profile', None)
 
@@ -484,7 +1239,6 @@ def update_task_status(request, task_id):
     task.status = new_status
     task.save()
 
-    # If updated by Intern, notify Supervisor
     if intern_profile and intern_profile.supervisor and intern_profile.supervisor.user:
         Notification.objects.create(
             recipient=intern_profile.supervisor.user,
@@ -495,7 +1249,6 @@ def update_task_status(request, task_id):
             notification_type=Notification.TYPE_TASK
         )
 
-    # Recalculate intern stats
     intern = task.topic.week.intern
     all_tasks = DailyTask.objects.filter(topic__week__intern=intern)
     total_tasks = all_tasks.count()

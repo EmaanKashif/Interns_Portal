@@ -584,10 +584,20 @@
                         <i class="fa-solid fa-user-shield"></i> Admin Portal
                     </a>
                 {% endif %}
+                <form method="POST"
+                    action="{% url 'accounts:logout' %}"
+                    style="margin: 0;">
+                    
+                    {% csrf_token %}
 
-                <a href="{% url 'accounts:logout' %}" class="logout-btn">
-                    <i class="fa-solid fa-right-from-bracket"></i> Logout
-                </a>
+                    <button type="submit"
+                            class="logout-btn"
+                            style="width: 100%; border: none; cursor: pointer;">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        Logout
+                    </button>
+
+                </form>
             {% else %}
                 <a href="{% url 'accounts:login' %}" class="btn btn-outline" style="padding: 8px 18px;">Login</a>
                 <a href="{% url 'accounts:activate' %}" class="btn" style="padding: 8px 18px;">Activate Account</a>

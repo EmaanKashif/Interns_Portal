@@ -4,27 +4,31 @@
 
 {% block content %}
 <!-- Welcome & Intern Header -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
+<div
+    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
     <div>
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
             <h1 style="font-size: 1.8rem; font-weight: 800; color: #fff;">
                 Welcome back, {{ profile.full_name }} 👋
             </h1>
-            <span style="background: rgba(99,102,241,0.2); color: #818cf8; font-family: monospace; font-size: 0.85rem; font-weight: 700; padding: 2px 10px; border-radius: 12px; border: 1px solid rgba(99,102,241,0.3);">
+            <span
+                style="background: rgba(99,102,241,0.2); color: #818cf8; font-family: monospace; font-size: 0.85rem; font-weight: 700; padding: 2px 10px; border-radius: 12px; border: 1px solid rgba(99,102,241,0.3);">
                 {{ profile.intern_id }}
             </span>
         </div>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
             {{ profile.degree }} · {{ profile.university }}
             {% if profile.supervisor and profile.supervisor.user %}
-                · Supervisor: <strong style="color: #fff;">{{ profile.supervisor.user.get_full_name }}</strong>
+            · Supervisor: <strong style="color: #fff;">{{ profile.supervisor.user.get_full_name }}</strong>
             {% endif %}
         </p>
     </div>
 
     {% if profile.supervisor and profile.supervisor.user %}
     <div>
-        <button onclick="openChatDrawer({{ profile.supervisor.user.id }}, '{{ profile.supervisor.user.get_full_name|escapejs }}')" class="btn" style="background: linear-gradient(135deg, var(--primary), #818cf8);">
+        <button
+            onclick="openChatDrawer({{ profile.supervisor.user.id }}, '{{ profile.supervisor.user.get_full_name|escapejs }}')"
+            class="btn" style="background: linear-gradient(135deg, var(--primary), #818cf8);">
             <i class="fa-solid fa-comments"></i> Message Supervisor
         </button>
     </div>
@@ -79,74 +83,305 @@
     <div class="card-header">
         <div class="card-title">
             <i class="fa-solid fa-calendar-week"></i>
-            {% if current_week %}
-                Week {{ current_week.week_number }} Schedule ({{ current_week.department.name }})
-            {% else %}
-                Active Rotation Tasks
-            {% endif %}
+            Weekly Schedule
         </div>
     </div>
 
     {% for week in all_weeks %}
-        <div style="margin-bottom: 24px; background: rgba(17,24,39,0.5); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
-            <div style="font-weight: 800; font-size: 1.05rem; color: #fff; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
-                <span><i class="fa-solid fa-bookmark" style="color: var(--primary);"></i> Week {{ week.week_number }}: {{ week.department.name }}</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">{{ week.start_date }} to {{ week.end_date }}</span>
+    <div
+        style="margin-bottom: 24px; background: rgba(17,24,39,0.5); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+        <div style="
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+">
+
+    <!-- Week Information -->
+    <div>
+        <div style="
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: #fff;
+            margin-bottom: 4px;
+        ">
+            <i class="fa-solid fa-bookmark"
+               style="color: var(--primary);"></i>
+
+            Week {{ week.week_number }}:
+            {{ week.department.name }}
+        </div>
+
+        <div style="
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        ">
+            <i class="fa-regular fa-calendar"
+               style="margin-right: 4px;"></i>
+
+            {{ week.start_date }} to {{ week.end_date }}
+        </div>
+    </div>
+
+
+    <!-- Add Day -->
+    <button
+        type="button"
+        onclick="addDayToWeek({{ week.id }}, {{ week.week_number }})"
+        class="btn btn-outline"
+        id="add_day_btn_{{ week.id }}"
+        style="
+            height: 38px;
+            padding: 7px 15px;
+            border-color: rgba(99,102,241,0.4);
+            background: rgba(99,102,241,0.10);
+            color: #a5b4fc;
+            white-space: nowrap;
+        "
+    >
+        <i class="fa-solid fa-plus"></i>
+        Add Day
+    </button>
+
+</div>
+
+        {% for topic in week.topics.all %}
+        <div style="margin-bottom: 16px;">
+            <div
+                style="font-weight: 700; font-size: 0.92rem; color: var(--accent-sky); margin-bottom: 10px; padding-left: 6px; border-left: 3px solid var(--accent-sky);">
+                {{ topic.title }}
             </div>
 
-            {% for topic in week.topics.all %}
-                <div style="margin-bottom: 16px;">
-                    <div style="font-weight: 700; font-size: 0.92rem; color: var(--accent-sky); margin-bottom: 10px; padding-left: 6px; border-left: 3px solid var(--accent-sky);">
-                        {{ topic.title }}
-                    </div>
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Day</th>
+                            <th>Task Title & Description</th>
+                            <th>Due Date</th>
+                            <th style="width: 150px;">Status</th>
+                            <th style="width: 170px;">Action / Submission</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in topic.tasks.all %}
+                        <tr>
+                            <td style="font-weight: 800; color: var(--text-muted);">Day {{ task.day_number }}</td>
+                            <td>
+                                <div style="font-weight: 700; color: #fff; margin-bottom: 2px;">{{ task.title }}</div>
+                                <div style="font-size: 0.82rem; color: var(--text-muted);">{{ task.description }}</div>
+                            </td>
+                            <td style="font-size: 0.85rem; color: var(--text-dim);">{{ task.due_date|default:"Ongoing" }}</td>
+                            <td>
+                                <select class="status-select" onchange="updateTaskStatus({{ task.id }}, this.value)"
+                                    id="select_task_{{ task.id }}">
+                                    <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pending
+                                    </option>
+                                    <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>
+                                        In Progress</option>
+                                    <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>
+                                        Completed</option>
+                                </select>
+                            </td>
+                            <td>
+    <div style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 220px;
+    ">
 
-                    <div class="table-responsive">
-                        <table class="custom-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 80px;">Day</th>
-                                    <th>Task Title & Description</th>
-                                    <th>Due Date</th>
-                                    <th style="width: 150px;">Status</th>
-                                    <th style="width: 170px;">Action / Submission</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for task in topic.tasks.all %}
-                                <tr>
-                                    <td style="font-weight: 800; color: var(--text-muted);">Day {{ task.day_number }}</td>
-                                    <td>
-                                        <div style="font-weight: 700; color: #fff; margin-bottom: 2px;">{{ task.title }}</div>
-                                        <div style="font-size: 0.82rem; color: var(--text-muted);">{{ task.description }}</div>
-                                    </td>
-                                    <td style="font-size: 0.85rem; color: var(--text-dim);">{{ task.due_date|default:"Ongoing" }}</td>
-                                    <td>
-                                        <select class="status-select" onchange="updateTaskStatus({{ task.id }}, this.value)" id="select_task_{{ task.id }}">
-                                            <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pending</option>
-                                            <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                                            <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>Completed</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <button onclick="openSubmitModal({{ task.id }}, '{{ task.title|escapejs }}')" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem; width: 100%;">
-                                            <i class="fa-solid fa-paperclip"></i> Submit Work
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No daily tasks assigned under this topic.</td></tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            {% endfor %}
+        <button type="button"
+            onclick="openEditTaskModal(
+                {{ task.id }},
+                '{{ task.title|escapejs }}',
+                '{{ task.description|escapejs }}',
+                '{{ task.due_date|date:"Y-m-d" }}'
+            )"
+            style="
+                width: 38px;
+                height: 38px;
+                flex-shrink: 0;
+                border-radius: 10px;
+                border: 1px solid rgba(99,102,241,0.35);
+                background: rgba(99,102,241,0.12);
+                color: #818cf8;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: 0.2s ease;
+            "
+            onmouseover="
+                this.style.background='rgba(99,102,241,0.22)';
+                this.style.borderColor='#818cf8';
+                this.style.transform='translateY(-1px)';
+            "
+            onmouseout="
+                this.style.background='rgba(99,102,241,0.12)';
+                this.style.borderColor='rgba(99,102,241,0.35)';
+                this.style.transform='translateY(0)';
+            "
+            title="Edit task">
+
+            <i class="fa-solid fa-pen-to-square"
+               style="font-size: 0.9rem;"></i>
+        </button>
+
+
+        <button type="button"
+            onclick="openSubmitModal(
+                {{ task.id }},
+                '{{ task.title|escapejs }}'
+            )"
+            class="btn btn-outline"
+            style="
+                flex: 1;
+                height: 38px;
+                padding: 6px 14px;
+                font-size: 0.8rem;
+                white-space: nowrap;
+            ">
+
+            <i class="fa-solid fa-paperclip"></i>
+            Submit Work
+        </button>
+
+    </div>
+</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-muted);">No daily tasks
+                                assigned under this topic.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
+        {% endfor %}
+    </div>
     {% empty %}
-        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-            No rotation weeks assigned yet. Your supervisor will configure your curriculum schedule shortly.
-        </div>
+    <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+        No rotation weeks assigned yet. Your supervisor will configure your curriculum schedule shortly.
+    </div>
     {% endfor %}
+</div>
+
+<!-- Modal: Edit Daily Task -->
+<div id="editTaskModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 540px;">
+
+        <div class="modal-header">
+            <h3 style="
+                color: #fff;
+                font-size: 1.1rem;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            ">
+                <i class="fa-solid fa-pen-to-square"
+                   style="color: var(--primary);"></i>
+                Edit Daily Task
+            </h3>
+
+            <button type="button"
+                onclick="closeModal('editTaskModal')"
+                class="close-modal">
+                &times;
+            </button>
+        </div>
+
+        <div class="modal-body">
+
+            <form id="editTaskForm"
+                style="
+                    display: flex;
+                    flex-direction: column;
+                    gap: 14px;
+                ">
+
+                {% csrf_token %}
+
+                <input type="hidden" id="edit_task_id">
+
+                <div>
+                    <label style="
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                        color: var(--text-muted);
+                    ">
+                        TASK TITLE *
+                    </label>
+
+                    <input
+                        type="text"
+                        id="edit_task_title"
+                        name="title"
+                        required
+                        class="form-control">
+                </div>
+
+                <div>
+                    <label style="
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                        color: var(--text-muted);
+                    ">
+                        DESCRIPTION
+                    </label>
+
+                    <textarea
+                        id="edit_task_description"
+                        name="description"
+                        rows="4"
+                        class="form-control"></textarea>
+                </div>
+
+                <div>
+                    <label style="
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                        color: var(--text-muted);
+                    ">
+                        DUE DATE
+                    </label>
+
+                    <input
+                        type="date"
+                        id="edit_task_due_date"
+                        name="due_date"
+                        class="form-control">
+                </div>
+
+                <div style="
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 10px;
+                    margin-top: 8px;
+                ">
+                    <button type="button"
+                        onclick="closeModal('editTaskModal')"
+                        class="btn btn-outline">
+                        Cancel
+                    </button>
+
+                    <button type="submit"
+                        class="btn">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        Save Changes
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
 </div>
 
 <!-- Modal: Task Work Submission -->
@@ -159,7 +394,8 @@
             <button onclick="closeModal('submitModal')" class="close-modal">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="submissionForm" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 14px;">
+            <form id="submissionForm" enctype="multipart/form-data"
+                style="display: flex; flex-direction: column; gap: 14px;">
                 {% csrf_token %}
                 <input type="hidden" id="submit_task_id" name="task_id">
                 <div>
@@ -167,11 +403,15 @@
                     <div id="submit_task_title" style="font-weight: 700; color: #fff; margin-top: 4px;"></div>
                 </div>
                 <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">SUBMISSION NOTES / REPORT SUMMARY</label>
-                    <textarea name="submission_text" rows="4" placeholder="Describe your findings, completed items, or execution results..." class="form-control" style="margin-top: 6px;"></textarea>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">SUBMISSION NOTES /
+                        REPORT SUMMARY</label>
+                    <textarea name="submission_text" rows="4"
+                        placeholder="Describe your findings, completed items, or execution results..."
+                        class="form-control" style="margin-top: 6px;"></textarea>
                 </div>
                 <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">ATTACH FILE (PDF, DOCX, ZIP, TXT, PNG, JPG - MAX 10MB)</label>
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">ATTACH FILE (PDF,
+                        DOCX, ZIP, TXT, PNG, JPG - MAX 10MB)</label>
                     <input type="file" name="attached_file" class="form-control" style="margin-top: 6px;">
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 8px;">
@@ -194,13 +434,17 @@
             <button onclick="closeModal('chatModal')" class="close-modal">&times;</button>
         </div>
         <div class="modal-body" style="display: flex; flex-direction: column; height: 100%; padding: 0;">
-            <div id="chatMessages" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(11,15,25,0.4);">
-                <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading chat conversation...</div>
+            <div id="chatMessages"
+                style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(11,15,25,0.4);">
+                <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading chat
+                    conversation...</div>
             </div>
-            <form id="chatForm" style="padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--bg-surface);">
+            <form id="chatForm"
+                style="padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--bg-surface);">
                 {% csrf_token %}
                 <input type="hidden" id="chat_recipient_id" name="recipient_id">
-                <input type="text" id="chat_input" name="content" placeholder="Type a message to your supervisor..." required class="form-control" style="flex: 1;">
+                <input type="text" id="chat_input" name="content" placeholder="Type a message to your supervisor..."
+                    required class="form-control" style="flex: 1;">
                 <button type="submit" class="btn" style="padding: 0 20px;">
                     <i class="fa-solid fa-paper-plane"></i> Send
                 </button>
@@ -212,81 +456,235 @@
 
 {% block scripts %}
 <script>
-function openSubmitModal(taskId, title) {
-    document.getElementById('submit_task_id').value = taskId;
-    document.getElementById('submit_task_title').innerText = title;
-    document.getElementById('submitModal').classList.add('active');
+    function openEditTaskModal(taskId, title, description, dueDate) {
+    document.getElementById('edit_task_id').value = taskId;
+    document.getElementById('edit_task_title').value = title || '';
+    document.getElementById('edit_task_description').value = description || '';
+    document.getElementById('edit_task_due_date').value = dueDate || '';
+
+    document.getElementById('editTaskModal')
+        .classList.add('active');
 }
+document.getElementById('editTaskForm')
+    .addEventListener('submit', function (e) {
 
-function closeModal(id) {
-    document.getElementById(id).classList.remove('active');
-}
+        e.preventDefault();
 
-function updateTaskStatus(taskId, newStatus) {
-    const formData = new FormData();
-    formData.append('status', newStatus);
+        const taskId =
+            document.getElementById('edit_task_id').value;
 
-    fetch(`/task/${taskId}/update_status/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            document.getElementById('stat_progress').innerText = `${data.progress_pct}%`;
-            document.getElementById('progress_pct_text').innerText = `${data.progress_pct}%`;
-            document.getElementById('progress_fill').style.width = `${data.progress_pct}%`;
-            document.getElementById('stat_completed').innerText = data.completed_tasks;
-            document.getElementById('stat_in_progress').innerText = data.in_progress_tasks;
-            document.getElementById('stat_pending').innerText = data.pending_tasks;
-            showToast('Task status updated successfully!', 'success');
-        } else {
-            showToast(data.error || 'Failed to update task status.', 'error');
-        }
-    });
-}
+        const formData = new FormData(this);
 
-// Work Submission Handler
-document.getElementById('submissionForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const taskId = document.getElementById('submit_task_id').value;
-    const formData = new FormData(this);
+        fetch(`/intern/task/${taskId}/edit/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
+            body: formData
+        })
+        .then(async response => {
 
-    fetch(`/academics/task/${taskId}/submit/`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            showToast(data.message, 'success');
-            closeModal('submitModal');
-            setTimeout(() => window.location.reload(), 1000);
-        } else {
-            showToast(data.error || 'Submission failed.', 'error');
-        }
-    });
-});
+            let data;
 
-// Chat Drawer Logic
-let currentChatTargetId = null;
+            try {
+                data = await response.json();
+            } catch (error) {
+                throw new Error(
+                    `Server returned ${response.status}.`
+                );
+            }
 
-function openChatDrawer(recipientId, name) {
-    currentChatTargetId = recipientId;
-    document.getElementById('chat_recipient_id').value = recipientId;
-    document.getElementById('chatModal').classList.add('active');
-    loadChatMessages(recipientId);
-}
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.error || 'Failed to update task.'
+                );
+            }
 
-function loadChatMessages(targetId) {
-    const chatContainer = document.getElementById('chatMessages');
-    fetch(`/messages/thread/?target_user_id=${targetId}`)
-        .then(res => res.json())
+            return data;
+        })
         .then(data => {
+
+            if (typeof showToast === 'function') {
+                showToast(
+                    data.message || 'Task updated successfully.',
+                    'success'
+                );
+            }
+
+            closeModal('editTaskModal');
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 700);
+        })
+        .catch(error => {
+
+            console.error('Edit task error:', error);
+
+            if (typeof showToast === 'function') {
+                showToast(
+                    error.message || 'Unable to update task.',
+                    'error'
+                );
+            }
+        });
+    });
+function addDayToWeek(weekId, weekNumber) {
+
+    const button = document.getElementById(
+        `add_day_btn_${weekId}`
+    );
+
+    if (!button) return;
+
+    // Prevent double clicking
+    button.disabled = true;
+
+    const originalHTML = button.innerHTML;
+
+    button.innerHTML = `
+        <i class="fa-solid fa-spinner fa-spin"></i>
+        Adding...
+    `;
+
+    fetch(`/intern/week/${weekId}/add-day/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken
+        }
+    })
+
+    .then(async response => {
+
+        let data;
+
+        try {
+            data = await response.json();
+        } catch (error) {
+            throw new Error(
+                `Server returned ${response.status}.`
+            );
+        }
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.error || 'Unable to add day.'
+            );
+        }
+
+        return data;
+    })
+
+    .then(data => {
+
+        if (typeof showToast === 'function') {
+            showToast(
+                data.message || 'New day added successfully.',
+                'success'
+            );
+        }
+
+        // Reload so Django renders the exact same row layout
+        setTimeout(() => {
+            window.location.reload();
+        }, 600);
+    })
+
+    .catch(error => {
+
+        console.error(
+            'Add day error:',
+            error
+        );
+
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+
+        if (typeof showToast === 'function') {
+            showToast(
+                error.message || 'Failed to add day.',
+                'error'
+            );
+        }
+    });
+}
+    function openSubmitModal(taskId, title) {
+        document.getElementById('submit_task_id').value = taskId;
+        document.getElementById('submit_task_title').innerText = title;
+        document.getElementById('submitModal').classList.add('active');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+    }
+
+    function updateTaskStatus(taskId, newStatus) {
+        const formData = new FormData();
+        formData.append('status', newStatus);
+
+        fetch(`/task/${taskId}/update_status/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        }).then(res => res.json()).then(data => {
             if (data.success) {
-                if (data.messages.length === 0) {
-                    chatContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin: auto;">No messages yet. Send a message to start conversation!</div>`;
-                    return;
-                }
-                chatContainer.innerHTML = data.messages.map(m => `
+                document.getElementById('stat_progress').innerText = `${data.progress_pct}%`;
+                document.getElementById('progress_pct_text').innerText = `${data.progress_pct}%`;
+                document.getElementById('progress_fill').style.width = `${data.progress_pct}%`;
+                document.getElementById('stat_completed').innerText = data.completed_tasks;
+                document.getElementById('stat_in_progress').innerText = data.in_progress_tasks;
+                document.getElementById('stat_pending').innerText = data.pending_tasks;
+                if (typeof showToast === 'function') showToast('Task status updated successfully!', 'success');
+            } else {
+                if (typeof showToast === 'function') showToast(data.error || 'Failed to update task status.', 'error');
+            }
+        });
+    }
+
+
+
+    // Work Submission Handler
+    document.getElementById('submissionForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const taskId = document.getElementById('submit_task_id').value;
+        const formData = new FormData(this);
+
+        fetch(`/academics/task/${taskId}/submit/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                if (typeof showToast === 'function') showToast(data.message, 'success');
+                closeModal('submitModal');
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                if (typeof showToast === 'function') showToast(data.error || 'Submission failed.', 'error');
+            }
+        });
+    });
+
+    // Chat Drawer Logic
+    let currentChatTargetId = null;
+
+    function openChatDrawer(recipientId, name) {
+        currentChatTargetId = recipientId;
+        document.getElementById('chat_recipient_id').value = recipientId;
+        document.getElementById('chatModal').classList.add('active');
+        loadChatMessages(recipientId);
+    }
+
+    function loadChatMessages(targetId) {
+        const chatContainer = document.getElementById('chatMessages');
+        fetch(`/messages/thread/?target_user_id=${targetId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.messages.length === 0) {
+                        chatContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin: auto;">No messages yet. Send a message to start conversation!</div>`;
+                        return;
+                    }
+                    chatContainer.innerHTML = data.messages.map(m => `
                     <div style="align-self: ${m.is_me ? 'flex-end' : 'flex-start'}; max-width: 80%;">
                         <div style="font-size: 0.72rem; color: var(--text-dim); margin-bottom: 2px; text-align: ${m.is_me ? 'right' : 'left'};">${m.sender_name} · ${m.created_at}</div>
                         <div style="background: ${m.is_me ? 'linear-gradient(135deg, var(--primary), #4f46e5)' : 'rgba(31, 41, 61, 0.9)'}; border: 1px solid var(--border-color); color: #fff; padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; word-break: break-word;">
@@ -294,26 +692,26 @@ function loadChatMessages(targetId) {
                         </div>
                     </div>
                 `).join('');
-                chatContainer.scrollTop = chatContainer.scrollHeight;
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            });
+    }
+
+    document.getElementById('chatForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch('/messages/send/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                document.getElementById('chat_input').value = '';
+                loadChatMessages(currentChatTargetId);
+            } else {
+                if (typeof showToast === 'function') showToast(data.error || 'Failed to send message.', 'error');
             }
         });
-}
-
-document.getElementById('chatForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch('/messages/send/', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            document.getElementById('chat_input').value = '';
-            loadChatMessages(currentChatTargetId);
-        } else {
-            showToast(data.error || 'Failed to send message.', 'error');
-        }
     });
-});
 </script>
 {% endblock %}

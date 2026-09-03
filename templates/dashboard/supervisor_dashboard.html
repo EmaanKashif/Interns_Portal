@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Supervisor Dashboard | IFL Interns{% endblock %}
 
-
 {% block content %}
+
 <!-- Header & Actions -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
     <div>
@@ -10,15 +10,11 @@
             Supervisor Portal: {{ profile.user.get_full_name }}
         </h1>
         <p style="color: var(--text-muted); font-size: 0.9rem;">
-            Domain Focus: <strong style="color: #fff;">{{ profile.department_focus }}</strong> · Managing <strong style="color: var(--primary);">{{ total_interns }} Assigned Interns</strong>
+            Domain Focus: <strong style="color: #fff;">{{ profile.department_focus }}</strong> · Managing 
+            <strong style="color: var(--primary);">{{ total_interns }} {% if show_archived %}Offboarded{% else %}Active{% endif %} Interns</strong>
         </p>
     </div>
 
-    <div>
-        <button onclick="openIssueModal()" class="btn" style="background: linear-gradient(135deg, var(--accent-emerald), #34d399);">
-            <i class="fa-solid fa-user-plus"></i> + Issue New Intern ID
-        </button>
-    </div>
 </div>
 
 <!-- Cohort Progress Metrics -->
@@ -27,7 +23,7 @@
         <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
         <div>
             <div class="stat-value">{{ total_interns }}</div>
-            <div class="stat-label">Assigned Cohort Interns</div>
+            <div class="stat-label">{% if show_archived %}Offboarded Interns{% else %}Assigned Cohort Interns{% endif %}</div>
         </div>
     </div>
     <div class="stat-card">
@@ -46,16 +42,29 @@
     </div>
 </div>
 
-<!-- Assigned Interns Table -->
-<div class="card">
-    <div class="card-header">
-        <div class="card-title">
-            <i class="fa-solid fa-user-graduate"></i> Assigned Intern Roster
+<!-- Assigned Interns Table Card -->
+<div class="card" style="margin-top: 0;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-user-graduate" style="color: var(--primary);"></i> 
+            {% if show_archived %}Offboarded / Completed Roster{% else %}Assigned Active Roster{% endif %}
+        </div>
+        
+        <div>
+            {% if show_archived %}
+                <a href="?archived=false" class="btn btn-outline" style="font-size: 0.8rem; padding: 6px 12px; color: var(--primary); border-color: var(--primary);">
+                    <i class="fa-solid fa-users"></i> View Active Roster
+                </a>
+            {% else %}
+                <a href="?archived=true" class="btn btn-outline" style="font-size: 0.8rem; padding: 6px 12px; color: var(--text-muted);">
+                    <i class="fa-solid fa-box-archive"></i> View Offboarded Interns
+                </a>
+            {% endif %}
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="custom-table">
+    <div class="table-responsive" style="overflow-x: auto;">
+        <table class="custom-table" style="width: 100%; min-width: 850px;">
             <thead>
                 <tr>
                     <th>Intern ID</th>
@@ -63,7 +72,7 @@
                     <th>University & Degree</th>
                     <th>Progress</th>
                     <th>Status / Activation</th>
-                    <th style="width: 220px;">Actions</th>
+                    <th>Tasks</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,91 +100,40 @@
                         </div>
                     </td>
                     <td>
-                        {% if row.intern.is_activated %}
+                        {% if show_archived %}
+                            <span class="badge" style="background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid #64748b;">
+                                <i class="fa-solid fa-box-archive"></i> Offboarded
+                            </span>
+                        {% elif row.intern.is_activated %}
                             <span class="badge badge-completed"><i class="fa-solid fa-check"></i> Active</span>
                         {% else %}
                             <span class="badge badge-pending"><i class="fa-solid fa-clock"></i> Pending Token</span>
                         {% endif %}
                     </td>
                     <td>
-                        <div style="display: flex; gap: 6px;">
-                            <button onclick="viewInternDetail({{ row.intern.id }})" class="btn btn-outline" style="padding: 5px 10px; font-size: 0.78rem;">
-                                <i class="fa-solid fa-eye"></i> Tasks
-                            </button>
-
-                            {% if row.intern.user %}
-                            <button onclick="openChatDrawer({{ row.intern.user.id }}, '{{ row.intern.full_name|escapejs }}')" class="btn btn-outline" style="padding: 5px 10px; font-size: 0.78rem; position: relative;">
-                                <i class="fa-solid fa-comments" style="color: var(--primary);"></i> Chat
-                                {% if row.unread_msg > 0 %}
-                                    <span style="position: absolute; top: -4px; right: -4px; background: var(--accent-rose); color: #fff; font-size: 0.6rem; font-weight: 800; border-radius: 50%; padding: 1px 5px;">{{ row.unread_msg }}</span>
-                                {% endif %}
-                            </button>
-                            {% endif %}
-                        </div>
+                        <button
+                            type="button"
+                            onclick="viewInternDetail({{ row.intern.id }})"
+                            class="btn btn-outline"
+                            style="padding: 6px 12px; font-size: 0.78rem;"
+                        >
+                            <i class="fa-solid fa-eye"></i> View Tasks
+                        </button>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                        No interns assigned to your focus area yet. Click <strong>Issue New Intern ID</strong> to onboard your first intern!
+                        {% if show_archived %}
+                            No offboarded or completed interns found in your archive.
+                        {% else %}
+                            No active interns are currently assigned to you.
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-    </div>
-</div>
-
-<!-- Modal: Issue Intern ID -->
-<div id="issueModal" class="modal-overlay">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-id-card" style="color: var(--accent-emerald);"></i> Issue New Intern ID & Activation Link
-            </h3>
-            <button onclick="closeModal('issueModal')" class="close-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-            <form id="issueForm" style="display: flex; flex-direction: column; gap: 14px;">
-                {% csrf_token %}
-                <input type="hidden" name="supervisor_id" value="{{ profile.id }}">
-                <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">INTERN FULL NAME *</label>
-                    <input type="text" name="full_name" required placeholder="e.g. David Kim" class="form-control">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-                    <div>
-                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">UNIVERSITY / INSTITUTE *</label>
-                        <input type="text" name="university" required placeholder="e.g. UC Berkeley" class="form-control">
-                    </div>
-                    <div>
-                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">DEGREE / DOMAIN *</label>
-                        <input type="text" name="degree" required placeholder="e.g. BS Data Science" class="form-control">
-                    </div>
-                </div>
-                <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">ROTATION DEPARTMENT</label>
-                    <select name="department_id" class="form-control">
-                        {% for dept in departments %}
-                            <option value="{{ dept.id }}">{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-                    <div>
-                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">START DATE</label>
-                        <input type="date" name="start_date" class="form-control">
-                    </div>
-                    <div>
-                        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">END DATE</label>
-                        <input type="date" name="end_date" class="form-control">
-                    </div>
-                </div>
-                <button type="submit" class="btn" style="background: var(--accent-emerald); height: 44px; margin-top: 10px;">
-                    <i class="fa-solid fa-key"></i> Generate Intern ID & Issue Activation Link
-                </button>
-            </form>
-        </div>
     </div>
 </div>
 
@@ -194,23 +152,45 @@
     </div>
 </div>
 
-<!-- Floating Messaging Drawer / Modal -->
+
+<!-- Supervisor Message Conversation Modal -->
 <div id="chatModal" class="modal-overlay">
     <div class="modal-card" style="max-width: 600px; height: 75vh;">
         <div class="modal-header">
-            <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700;" id="chat_title">
-                Direct Chat with Intern
+            <h3 id="chat_title" style="color: #fff; font-size: 1.1rem; font-weight: 700;">
+                Conversation
             </h3>
-            <button onclick="closeModal('chatModal')" class="close-modal">&times;</button>
+            <button type="button" onclick="closeModal('chatModal')" class="close-modal">&times;</button>
         </div>
+
         <div class="modal-body" style="display: flex; flex-direction: column; height: 100%; padding: 0;">
-            <div id="chatMessages" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(11,15,25,0.4);">
-                <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading chat conversation...</div>
+            <div
+                id="chatMessages"
+                style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(11,15,25,0.4);"
+            >
+                <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin: auto;">
+                    Loading conversation...
+                </div>
             </div>
-            <form id="chatForm" style="padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--bg-surface);">
+
+            <form
+                id="chatForm"
+                style="padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--bg-surface);"
+            >
                 {% csrf_token %}
                 <input type="hidden" id="chat_recipient_id" name="recipient_id">
-                <input type="text" id="chat_input" name="content" placeholder="Type a message to intern..." required class="form-control" style="flex: 1;">
+
+                <input
+                    type="text"
+                    id="chat_input"
+                    name="content"
+                    placeholder="Type a reply..."
+                    required
+                    class="form-control"
+                    style="flex: 1;"
+                    autocomplete="off"
+                >
+
                 <button type="submit" class="btn" style="padding: 0 20px;">
                     <i class="fa-solid fa-paper-plane"></i> Send
                 </button>
@@ -218,51 +198,60 @@
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-function openIssueModal() { document.getElementById('issueModal').classList.add('active'); }
-function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-
-// Issue Intern ID Form Handler
-document.getElementById('issueForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch('/issue-intern-id/', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            showToast(`Issued Intern ID: ${data.intern_id}`, 'success');
-            closeModal('issueModal');
-            setTimeout(() => window.location.reload(), 1200);
-        } else {
-            showToast(data.error || 'Failed to issue Intern ID', 'error');
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.remove('active');
         }
-    });
-});
+    }
 
-// View Intern Detail Modal
-function viewInternDetail(internId) {
-    const modal = document.getElementById('detailModal');
-    const content = document.getElementById('detail_content');
-    modal.classList.add('active');
-    content.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 30px;">Loading task schedule & work submissions...</div>`;
+    // View Intern Detail Modal
+    function viewInternDetail(internId) {
+        const modal = document.getElementById('detailModal');
+        const content = document.getElementById('detail_content');
 
-    fetch(`/intern/${internId}/detail/`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('detail_intern_name').innerText = `${data.intern.full_name} (${data.intern.intern_id}) Schedule`;
-                
-                let weeksHtml = data.weeks.map(w => `
+        modal.classList.add('active');
+        content.innerHTML = `
+            <div style="text-align: center; color: var(--text-muted); padding: 30px;">
+                Loading task schedule & work submissions...
+            </div>
+        `;
+
+        fetch(`/intern/${internId}/detail/`)
+            .then(async (res) => {
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Failed to load intern details.');
+                }
+
+                return data;
+            })
+            .then((data) => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load intern details.');
+                }
+
+                document.getElementById('detail_intern_name').innerText =
+                    `${data.intern.full_name} (${data.intern.intern_id}) Schedule`;
+
+                const weeksHtml = data.weeks.map((w) => `
                     <div style="margin-bottom: 20px; background: rgba(17,24,39,0.6); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
-                        <div style="font-weight: 800; color: #fff; margin-bottom: 10px;">Week ${w.week_number}: ${w.department}</div>
-                        ${w.topics.map(t => `
+                        <div style="font-weight: 800; color: #fff; margin-bottom: 10px;">
+                            Week ${w.week_number}: ${escapeHtml(w.department)}
+                        </div>
+
+                        ${w.topics.map((t) => `
                             <div style="margin-bottom: 12px;">
-                                <div style="font-weight: 700; font-size: 0.88rem; color: var(--accent-sky); margin-bottom: 6px;">${t.title}</div>
+                                <div style="font-weight: 700; font-size: 0.88rem; color: var(--accent-sky); margin-bottom: 6px;">
+                                    ${escapeHtml(t.title)}
+                                </div>
+
                                 <div class="table-responsive">
                                     <table class="custom-table">
                                         <thead>
@@ -274,26 +263,58 @@ function viewInternDetail(internId) {
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
+
                                         <tbody>
-                                            ${t.tasks.map(tsk => `
+                                            ${t.tasks.map((tsk) => `
                                                 <tr>
                                                     <td>Day ${tsk.day_number}</td>
+
                                                     <td>
-                                                        <strong style="color: #fff;">${tsk.title}</strong>
-                                                        <div style="font-size: 0.78rem; color: var(--text-muted);">${tsk.description}</div>
+                                                        <strong style="color: #fff;">
+                                                            ${escapeHtml(tsk.title)}
+                                                        </strong>
+                                                        <div style="font-size: 0.78rem; color: var(--text-muted);">
+                                                            ${escapeHtml(tsk.description)}
+                                                        </div>
                                                     </td>
-                                                    <td><span class="badge badge-${tsk.status}">${tsk.status_display}</span></td>
+
+                                                    <td>
+                                                        <span class="badge badge-${escapeHtml(tsk.status)}">
+                                                            ${escapeHtml(tsk.status_display)}
+                                                        </span>
+                                                    </td>
+
                                                     <td>
                                                         ${tsk.has_submission ? `
                                                             <div style="font-size: 0.8rem; color: var(--accent-emerald);">
-                                                                <i class="fa-solid fa-check"></i> ${tsk.submission_status}
-                                                                ${tsk.file_name ? `<br><a href="/academics/submission/${tsk.submission_id}/download/" style="font-size: 0.75rem;"><i class="fa-solid fa-download"></i> ${tsk.file_name}</a>` : ''}
+                                                                <i class="fa-solid fa-check"></i>
+                                                                ${escapeHtml(tsk.submission_status)}
+                                                                ${tsk.file_name ? `
+                                                                    <br>
+                                                                    <a
+                                                                        href="/academics/submission/${tsk.submission_id}/download/"
+                                                                        style="font-size: 0.75rem;"
+                                                                    >
+                                                                        <i class="fa-solid fa-download"></i>
+                                                                        ${escapeHtml(tsk.file_name)}
+                                                                    </a>
+                                                                ` : ''}
                                                             </div>
-                                                        ` : '<span style="color: var(--text-dim); font-size: 0.78rem;">No submission</span>'}
+                                                        ` : `
+                                                            <span style="color: var(--text-dim); font-size: 0.78rem;">
+                                                                No submission
+                                                            </span>
+                                                        `}
                                                     </td>
+
                                                     <td>
                                                         ${tsk.has_submission ? `
-                                                            <button onclick="reviewSubmission(${tsk.submission_id})" class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;">
+                                                            <button
+                                                                type="button"
+                                                                onclick="reviewSubmission(${tsk.submission_id})"
+                                                                class="btn btn-outline"
+                                                                style="padding: 4px 8px; font-size: 0.75rem;"
+                                                            >
                                                                 Review / Feedback
                                                             </button>
                                                         ` : '-'}
@@ -308,83 +329,226 @@ function viewInternDetail(internId) {
                     </div>
                 `).join('');
 
-                content.innerHTML = weeksHtml || `<div style="text-align: center; color: var(--text-muted);">No weeks assigned yet.</div>`;
-            } else {
-                content.innerHTML = `<div style="color: var(--accent-rose); text-align: center;">${data.error || 'Failed to load details.'}</div>`;
-            }
-        });
-}
+                content.innerHTML = weeksHtml || `
+                    <div style="text-align: center; color: var(--text-muted);">
+                        No weeks assigned yet.
+                    </div>
+                `;
+            })
+            .catch((error) => {
+                console.error('Intern details error:', error);
+                content.innerHTML = `
+                    <div style="color: var(--accent-rose); text-align: center;">
+                        ${escapeHtml(error.message)}
+                    </div>
+                `;
+            });
+    }
 
-function reviewSubmission(subId) {
-    const feedback = prompt("Enter review feedback for intern submission:");
-    if (feedback !== null) {
+    function reviewSubmission(subId) {
+        const feedback = prompt('Enter review feedback for intern submission:');
+
+        if (feedback === null) {
+            return;
+        }
+
         const formData = new FormData();
         formData.append('status', 'reviewed');
         formData.append('feedback', feedback);
 
         fetch(`/academics/submission/${subId}/review/`, {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrftoken },
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
             body: formData
-        }).then(res => res.json()).then(data => {
+        })
+        .then(async (res) => {
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to save review.');
+            }
+
+            return data;
+        })
+        .then((data) => {
             if (data.success) {
                 showToast('Review & feedback saved!', 'success');
             } else {
                 showToast(data.error || 'Failed to save review.', 'error');
             }
+        })
+        .catch((error) => {
+            console.error('Review error:', error);
+            showToast(error.message || 'Failed to save review.', 'error');
         });
     }
-}
 
-// Chat Drawer Logic
-let currentChatTargetId = null;
+    // Supervisor chat modal opened from the top notification bell.
+    let currentChatTargetId = null;
 
-function openChatDrawer(recipientId, name) {
-    currentChatTargetId = recipientId;
-    document.getElementById('chat_recipient_id').value = recipientId;
-    document.getElementById('chat_title').innerText = `Direct Chat with ${name}`;
-    document.getElementById('chatModal').classList.add('active');
-    loadChatMessages(recipientId);
-}
+    function openChatDrawer(recipientId) {
+        currentChatTargetId = String(recipientId);
 
-function loadChatMessages(targetId) {
-    const chatContainer = document.getElementById('chatMessages');
-    fetch(`/messages/thread/?target_user_id=${targetId}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                if (data.messages.length === 0) {
-                    chatContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin: auto;">No messages yet. Send a message to start conversation!</div>`;
+        document.getElementById('chat_recipient_id').value = currentChatTargetId;
+        document.getElementById('chatModal').classList.add('active');
+
+        loadChatMessages(currentChatTargetId);
+    }
+
+    function loadChatMessages(targetId) {
+        const chatContainer = document.getElementById('chatMessages');
+
+        chatContainer.innerHTML = `
+            <div style="text-align:center; color:var(--text-muted); margin:auto;">
+                Loading conversation...
+            </div>
+        `;
+
+        fetch(`/messages/thread/?target_user_id=${encodeURIComponent(targetId)}`)
+            .then(async (response) => {
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load conversation.');
+                }
+
+                return data;
+            })
+            .then((data) => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load conversation.');
+                }
+
+                document.getElementById('chat_title').textContent =
+                    `Chat with ${data.target_user_name}`;
+
+                if (!data.messages.length) {
+                    chatContainer.innerHTML = `
+                        <div style="text-align:center; color:var(--text-muted); margin:auto;">
+                            No messages yet.
+                        </div>
+                    `;
                     return;
                 }
-                chatContainer.innerHTML = data.messages.map(m => `
-                    <div style="align-self: ${m.is_me ? 'flex-end' : 'flex-start'}; max-width: 80%;">
-                        <div style="font-size: 0.72rem; color: var(--text-dim); margin-bottom: 2px; text-align: ${m.is_me ? 'right' : 'left'};">${m.sender_name} · ${m.created_at}</div>
-                        <div style="background: ${m.is_me ? 'linear-gradient(135deg, var(--primary), #4f46e5)' : 'rgba(31, 41, 61, 0.9)'}; border: 1px solid var(--border-color); color: #fff; padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; word-break: break-word;">
-                            ${m.content}
+
+                chatContainer.innerHTML = data.messages.map((message) => `
+                    <div style="
+                        align-self:${message.is_me ? 'flex-end' : 'flex-start'};
+                        max-width:80%;
+                    ">
+                        <div style="
+                            font-size:0.72rem;
+                            color:var(--text-dim);
+                            margin-bottom:3px;
+                            text-align:${message.is_me ? 'right' : 'left'};
+                        ">
+                            ${escapeHtml(message.sender_name)}
+                            ·
+                            ${escapeHtml(message.created_at)}
+                        </div>
+
+                        <div style="
+                            background:${message.is_me
+                                ? 'linear-gradient(135deg, var(--primary), #4f46e5)'
+                                : 'rgba(31,41,61,0.9)'};
+                            border:1px solid var(--border-color);
+                            color:#fff;
+                            padding:10px 14px;
+                            border-radius:14px;
+                            word-break:break-word;
+                        ">
+                            ${escapeHtml(message.content)}
                         </div>
                     </div>
                 `).join('');
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-        });
-}
 
-document.getElementById('chatForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch('/messages/send/', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrftoken },
-        body: formData
-    }).then(res => res.json()).then(data => {
-        if (data.success) {
-            document.getElementById('chat_input').value = '';
-            loadChatMessages(currentChatTargetId);
-        } else {
-            showToast(data.error || 'Failed to send message.', 'error');
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            })
+            .catch((error) => {
+                console.error('Chat load error:', error);
+
+                chatContainer.innerHTML = `
+                    <div style="text-align:center; color:var(--accent-rose); margin:auto;">
+                        ${escapeHtml(error.message)}
+                    </div>
+                `;
+            });
+    }
+
+    const chatForm = document.getElementById('chatForm');
+
+    if (chatForm) {
+        chatForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            if (!currentChatTargetId) {
+                showToast('No conversation selected.', 'error');
+                return;
+            }
+
+            const input = document.getElementById('chat_input');
+
+            if (!input.value.trim()) {
+                return;
+            }
+
+            const formData = new FormData(this);
+
+            fetch('/messages/send/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                },
+                body: formData
+            })
+            .then(async (response) => {
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to send message.');
+                }
+
+                return data;
+            })
+            .then((data) => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to send message.');
+                }
+
+                input.value = '';
+                loadChatMessages(currentChatTargetId);
+            })
+            .catch((error) => {
+                console.error('Send message error:', error);
+                showToast(error.message || 'Failed to send message.', 'error');
+            });
+        });
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    // The existing bell notification should link to:
+    // /supervisor/?chat=<sender_user_id>
+    document.addEventListener('DOMContentLoaded', function () {
+        const params = new URLSearchParams(window.location.search);
+        const chatUserId = params.get('chat');
+
+        if (chatUserId) {
+            openChatDrawer(chatUserId);
+
+            // Remove ?chat= from the URL after opening the conversation.
+            window.history.replaceState(
+                {},
+                document.title,
+                window.location.pathname
+            );
         }
     });
-});
 </script>
 {% endblock %}

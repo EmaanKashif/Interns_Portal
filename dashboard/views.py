@@ -189,10 +189,6 @@ def intern_dashboard(request):
                 notification_type=Notification.TYPE_TASK
             )
 
-    # Ensure 6-week rotation is populated
-    if not profile.weeks.exists():
-        build_full_intern_schedule(profile)
-
     current_week = profile.weeks.order_by('-week_number').first()
     all_weeks = profile.weeks.prefetch_related('topics__tasks__submissions').order_by('week_number')
     
@@ -245,10 +241,9 @@ def supervisor_dashboard(request):
     total_cohort_completed = 0
 
     for intern in interns:
-        if not intern.weeks.exists():
-            build_full_intern_schedule(intern)
-
-        tasks = DailyTask.objects.filter(topic__week__intern=intern)
+        tasks = DailyTask.objects.filter(
+        topic__week__intern=intern
+        )
         total = tasks.count()
         completed = tasks.filter(status=DailyTask.STATUS_COMPLETED).count()
         in_progress = tasks.filter(status=DailyTask.STATUS_IN_PROGRESS).count()
@@ -339,9 +334,6 @@ def issue_intern_id_api(request):
     )
     profile.generate_activation_token()
 
-    # Automatically generate full 6-week rotation schedule
-    build_full_intern_schedule(profile)
-
     scheme = 'https' if request.is_secure() else 'http'
     host = request.get_host()
     activation_url = f"{scheme}://{host}/accounts/activate/?token={profile.activation_token}"
@@ -412,6 +404,376 @@ def create_custom_week_api(request):
 
     return JsonResponse({'success': True, 'message': f'Week {week_number} ({department.name}) updated successfully.'})
 
+@login_required
+def get_intern_schedule_api(request, intern_id):
+    """
+    Admin-only API:
+    Returns the complete manually assigned schedule for an intern.
+    """
+
+    if (
+        request.user.role != User.ROLE_ADMIN
+        and not request.user.is_superuser
+    ):
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    intern = get_object_or_404(
+        InternProfile,
+        id=intern_id
+    )
+
+    weeks = (
+        InternshipWeek.objects
+        .filter(intern=intern)
+        .select_related('department')
+        .prefetch_related('topics__tasks')
+        .order_by('week_number')
+    )
+
+    weeks_data = []
+
+    for week in weeks:
+
+        tasks_data = []
+
+        for topic in week.topics.all():
+            for task in topic.tasks.all().order_by('day_number'):
+                tasks_data.append({
+                    'id': task.id,
+                    'day_number': task.day_number,
+                    'title': task.title,
+                    'description': task.description or '',
+                    'due_date': (
+                        str(task.due_date)
+                        if task.due_date
+                        else ''
+                    ),
+                })
+
+        weeks_data.append({
+            'id': week.id,
+            'week_number': week.week_number,
+            'department_id': week.department_id,
+            'department_name': week.department.name,
+            'start_date': str(week.start_date),
+            'end_date': str(week.end_date),
+
+            'course_outline_title':
+                week.course_outline_title or '',
+
+            'course_outline_text':
+                week.course_outline_text or '',
+
+            'course_outline_file_name': (
+                os.path.basename(
+                    week.course_outline_file.name
+                )
+                if week.course_outline_file
+                else ''
+            ),
+
+            'course_outline_file_url': (
+                week.course_outline_file.url
+                if week.course_outline_file
+                else ''
+            ),
+
+            'tasks': tasks_data,
+        })
+
+    return JsonResponse({
+        'success': True,
+
+        'intern': {
+            'id': intern.id,
+            'intern_id': intern.intern_id,
+            'full_name': intern.full_name,
+            'start_date': (
+                str(intern.start_date)
+                if intern.start_date
+                else ''
+            ),
+            'end_date': (
+                str(intern.end_date)
+                if intern.end_date
+                else ''
+            ),
+        },
+
+        'weeks': weeks_data
+    })
+
+@login_required
+@require_POST
+def save_intern_schedule_week_api(request, intern_id):
+    """
+    Admin-only API:
+    Creates or updates one week of an intern's schedule.
+    """
+
+    if (
+        request.user.role != User.ROLE_ADMIN
+        and not request.user.is_superuser
+    ):
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    intern = get_object_or_404(
+        InternProfile,
+        id=intern_id
+    )
+
+    week_id = request.POST.get('week_id', '').strip()
+    week_number = request.POST.get('week_number', '').strip()
+    department_id = request.POST.get('department_id', '').strip()
+    start_date_str = request.POST.get('start_date', '').strip()
+    end_date_str = request.POST.get('end_date', '').strip()
+
+    course_outline_title = request.POST.get(
+        'course_outline_title',
+        ''
+    ).strip()
+
+    course_outline_text = request.POST.get(
+        'course_outline_text',
+        ''
+    ).strip()
+
+    # ----------------------------
+    # Basic validation
+    # ----------------------------
+
+    if not week_number:
+        return JsonResponse({
+            'success': False,
+            'error': 'Week number is required.'
+        }, status=400)
+
+    try:
+        week_number = int(week_number)
+
+        if week_number < 1:
+            raise ValueError
+
+    except ValueError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid week number.'
+        }, status=400)
+
+    if not department_id:
+        return JsonResponse({
+            'success': False,
+            'error': 'Department is required.'
+        }, status=400)
+
+    department = get_object_or_404(
+        Department,
+        id=department_id
+    )
+
+    if not start_date_str or not end_date_str:
+        return JsonResponse({
+            'success': False,
+            'error': 'Start date and end date are required.'
+        }, status=400)
+
+    try:
+        start_date = datetime.datetime.strptime(
+            start_date_str,
+            '%Y-%m-%d'
+        ).date()
+
+        end_date = datetime.datetime.strptime(
+            end_date_str,
+            '%Y-%m-%d'
+        ).date()
+
+    except ValueError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid date format.'
+        }, status=400)
+
+    if end_date < start_date:
+        return JsonResponse({
+            'success': False,
+            'error': 'End date cannot be before start date.'
+        }, status=400)
+
+    # ----------------------------
+    # Existing week OR new week
+    # ----------------------------
+
+    if week_id:
+
+        week = get_object_or_404(
+            InternshipWeek,
+            id=week_id,
+            intern=intern
+        )
+
+        duplicate = InternshipWeek.objects.filter(
+            intern=intern,
+            week_number=week_number
+        ).exclude(id=week.id).exists()
+
+        if duplicate:
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    f'Week {week_number} already exists '
+                    f'for this intern.'
+                )
+            }, status=400)
+
+    else:
+
+        if InternshipWeek.objects.filter(
+            intern=intern,
+            week_number=week_number
+        ).exists():
+
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    f'Week {week_number} already exists '
+                    f'for this intern.'
+                )
+            }, status=400)
+
+        week = InternshipWeek(
+            intern=intern
+        )
+
+    # ----------------------------
+    # Save week
+    # ----------------------------
+
+    week.week_number = week_number
+    week.department = department
+    week.start_date = start_date
+    week.end_date = end_date
+    week.course_outline_title = course_outline_title
+    week.course_outline_text = course_outline_text
+
+    # Optional uploaded outline
+    uploaded_file = request.FILES.get(
+        'course_outline_file'
+    )
+
+    if uploaded_file:
+
+        allowed_extensions = (
+            '.pdf',
+            '.doc',
+            '.docx'
+        )
+
+        file_name = uploaded_file.name.lower()
+
+        if not file_name.endswith(allowed_extensions):
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    'Course outline must be a '
+                    'PDF, DOC, or DOCX file.'
+                )
+            }, status=400)
+
+        # 10 MB maximum
+        if uploaded_file.size > 10 * 1024 * 1024:
+            return JsonResponse({
+                'success': False,
+                'error': (
+                    'Course outline file cannot '
+                    'be larger than 10 MB.'
+                )
+            }, status=400)
+
+        week.course_outline_file = uploaded_file
+
+    week.save()
+
+    # ----------------------------
+    # Ensure the week has a topic
+    # ----------------------------
+
+    topic = week.topics.order_by('order').first()
+
+    if not topic:
+        topic = Topic.objects.create(
+            week=week,
+            title=f'{department.name} Weekly Tasks',
+            order=1
+        )
+
+    return JsonResponse({
+        'success': True,
+        'message': (
+            f'Week {week.week_number} saved successfully.'
+        ),
+        'week_id': week.id
+    })
+
+@login_required
+@require_POST
+def delete_intern_schedule_week_api(
+    request,
+    intern_id,
+    week_id
+):
+    """
+    Admin-only API:
+    Deletes a schedule week if it has no submitted work.
+    """
+
+    if (
+        request.user.role != User.ROLE_ADMIN
+        and not request.user.is_superuser
+    ):
+        return JsonResponse({
+            'success': False,
+            'error': 'Permission denied.'
+        }, status=403)
+
+    intern = get_object_or_404(
+        InternProfile,
+        id=intern_id
+    )
+
+    week = get_object_or_404(
+        InternshipWeek,
+        id=week_id,
+        intern=intern
+    )
+
+    # Protect intern submission history
+    has_submissions = TaskSubmission.objects.filter(
+        task__topic__week=week
+    ).exists()
+
+    if has_submissions:
+        return JsonResponse({
+            'success': False,
+            'error': (
+                'This week cannot be deleted because '
+                'the intern has already submitted work for it.'
+            )
+        }, status=400)
+
+    week_number = week.week_number
+    week.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Week {week_number} deleted successfully.'
+    })
 
 @login_required
 @require_POST

@@ -47,6 +47,23 @@ path(
     views.intern_add_day_api,
     name='intern_add_day'
 ),
+path(
+    'intern/<int:intern_id>/schedule/',
+    views.get_intern_schedule_api,
+    name='get_intern_schedule'
+),
+
+path(
+    'intern/<int:intern_id>/schedule/week/save/',
+    views.save_intern_schedule_week_api,
+    name='save_intern_schedule_week'
+),
+
+path(
+    'intern/<int:intern_id>/schedule/week/<int:week_id>/delete/',
+    views.delete_intern_schedule_week_api,
+    name='delete_intern_schedule_week'
+),
 
 ]
 

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Admin Control Portal | IFL Interns{% endblock %}
 {% block content %}
 
@@ -125,6 +124,329 @@
         white-space: nowrap;
         border: 0;
     }
+
+
+    /* ==========================================
+       MANAGE SCHEDULES DRAWER
+    =========================================== */
+    .schedule-drawer-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.58);
+        backdrop-filter: blur(2px);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.22s ease, visibility 0.22s ease;
+        z-index: 1998;
+    }
+
+    .schedule-drawer-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .schedule-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: min(680px, 96vw);
+        height: 100%;
+        background: #121827;
+        border-left: 1px solid rgba(255, 255, 255, 0.09);
+        box-shadow: -18px 0 45px rgba(0, 0, 0, 0.34);
+        transform: translateX(102%);
+        transition: transform 0.28s ease;
+        z-index: 1999;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .schedule-drawer.active {
+        transform: translateX(0);
+    }
+
+    .schedule-drawer-header {
+        padding: 20px 22px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-shrink: 0;
+    }
+
+    .schedule-drawer-title {
+        color: #fff;
+        font-size: 1.18rem;
+        font-weight: 800;
+        margin: 0;
+    }
+
+    .schedule-drawer-subtitle {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        margin-top: 4px;
+    }
+
+    .schedule-drawer-close {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: #fff;
+        cursor: pointer;
+        font-size: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .schedule-drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 22px 28px;
+    }
+
+    .schedule-search-wrap {
+        position: relative;
+        margin-bottom: 16px;
+    }
+
+    .schedule-search-wrap > i {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-dim);
+        pointer-events: none;
+    }
+
+    .schedule-search {
+        padding-left: 38px !important;
+    }
+
+    .schedule-intern-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .schedule-intern-item {
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.025);
+        padding: 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: inherit;
+        cursor: pointer;
+        text-align: left;
+        transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    }
+
+    .schedule-intern-item:hover {
+        border-color: rgba(99, 102, 241, 0.42);
+        background: rgba(99, 102, 241, 0.07);
+        transform: translateY(-1px);
+    }
+
+    .schedule-intern-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background: rgba(99, 102, 241, 0.13);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        flex-shrink: 0;
+    }
+
+    .schedule-intern-meta {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .schedule-intern-name {
+        color: #fff;
+        font-weight: 750;
+        font-size: 0.92rem;
+    }
+
+    .schedule-intern-detail {
+        color: var(--text-muted);
+        font-size: 0.77rem;
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .schedule-intern-arrow {
+        color: var(--text-dim);
+        flex-shrink: 0;
+    }
+
+    .schedule-back-btn {
+        border: 0;
+        background: transparent;
+        color: var(--primary);
+        cursor: pointer;
+        padding: 0;
+        font-size: 0.82rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 14px;
+    }
+
+    .schedule-selected-intern {
+        padding: 14px 15px;
+        border-radius: 12px;
+        border: 1px solid rgba(99, 102, 241, 0.22);
+        background: rgba(99, 102, 241, 0.07);
+        margin-bottom: 18px;
+    }
+
+    .schedule-selected-intern h3 {
+        color: #fff;
+        margin: 0;
+        font-size: 1.05rem;
+    }
+
+    .schedule-selected-intern p {
+        margin: 5px 0 0;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+    }
+
+    .schedule-state {
+        text-align: center;
+        color: var(--text-muted);
+        padding: 34px 16px;
+    }
+
+    .schedule-error {
+        padding: 11px 13px;
+        border-radius: 9px;
+        background: rgba(244, 63, 94, 0.1);
+        border: 1px solid rgba(244, 63, 94, 0.22);
+        color: #fda4af;
+        font-size: 0.8rem;
+        margin-bottom: 14px;
+    }
+
+    .schedule-week-card {
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, 0.025);
+        margin-bottom: 14px;
+        overflow: hidden;
+    }
+
+    .schedule-week-head {
+        padding: 12px 15px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .schedule-week-head strong {
+        color: #fff;
+    }
+
+    .schedule-week-content {
+        padding: 15px;
+    }
+
+    .schedule-field {
+        margin-bottom: 13px;
+    }
+
+    .schedule-label {
+        display: block;
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 750;
+        text-transform: uppercase;
+        letter-spacing: 0.035em;
+        margin-bottom: 6px;
+    }
+
+    .schedule-date-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .schedule-outline-block {
+        margin-top: 16px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .schedule-outline-heading {
+        color: var(--primary);
+        font-weight: 800;
+        font-size: 0.76rem;
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+    }
+
+    .schedule-current-file {
+        color: var(--text-muted);
+        font-size: 0.77rem;
+        margin-bottom: 7px;
+        word-break: break-word;
+    }
+
+    .schedule-card-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 9px;
+        margin-top: 4px;
+    }
+
+    .schedule-delete-week {
+        border: 0;
+        background: transparent;
+        color: var(--accent-rose);
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .schedule-week-message {
+        display: none;
+        margin-top: 9px;
+        font-size: 0.78rem;
+    }
+
+    .schedule-add-week {
+        width: 100%;
+        border: 1px dashed rgba(99, 102, 241, 0.45);
+        background: rgba(99, 102, 241, 0.05);
+        color: var(--primary);
+        border-radius: 11px;
+        padding: 12px;
+        cursor: pointer;
+        font-weight: 750;
+        margin-top: 4px;
+    }
+
+    @media (max-width: 720px) {
+        .schedule-date-grid {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+    }
+
 </style>
 
 <!-- Header Section -->
@@ -200,8 +522,8 @@
         <div class="card-title">
             <i class="fa-solid fa-list-check"></i> Intern Onboarding & Account Tokens
         </div>
-        <button onclick="openIssueModal()" class="btn btn-outline" style="padding: 6px 14px; font-size: 0.85rem;">
-            + Issue New Intern ID
+        <button type="button" onclick="openScheduleDrawer()" class="btn btn-outline" style="padding: 7px 14px; font-size: 0.85rem; white-space: nowrap;">
+            <i class="fa-solid fa-calendar-days"></i> Manage Schedules
         </button>
     </div>
 
@@ -771,6 +1093,101 @@
     </div>
 </div>
 
+
+
+<!-- ==========================================
+     MANAGE INTERN SCHEDULES DRAWER
+=========================================== -->
+<div id="scheduleDrawerOverlay" class="schedule-drawer-overlay" onclick="closeScheduleDrawer()"></div>
+
+<aside id="scheduleDrawer" class="schedule-drawer" aria-hidden="true" aria-label="Manage intern schedules">
+    <div class="schedule-drawer-header">
+        <div>
+            <h2 id="scheduleDrawerTitle" class="schedule-drawer-title">Manage Schedules</h2>
+            <div id="scheduleDrawerSubtitle" class="schedule-drawer-subtitle">Choose an intern to manage their weekly schedule and course outline.</div>
+        </div>
+        <button type="button" class="schedule-drawer-close" onclick="closeScheduleDrawer()" aria-label="Close schedule drawer">&times;</button>
+    </div>
+
+    <div class="schedule-drawer-body" id="scheduleDrawerBody">
+        <!-- Intern picker view -->
+        <section id="scheduleInternPickerView">
+            <div class="schedule-search-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input
+                    id="scheduleInternSearch"
+                    type="search"
+                    class="form-control schedule-search"
+                    placeholder="Search intern by name, ID, degree or university..."
+                    autocomplete="off"
+                >
+            </div>
+
+            <div id="scheduleInternList" class="schedule-intern-list">
+                {% for intern in interns %}
+                <button
+                    type="button"
+                    class="schedule-intern-item"
+                    data-search="{{ intern.full_name|lower|escape }} {{ intern.intern_id|lower|escape }} {{ intern.degree|lower|escape }} {{ intern.university|lower|escape }}"
+                    onclick="selectScheduleIntern(
+                        {{ intern.id }},
+                        '{{ intern.full_name|escapejs }}',
+                        '{{ intern.intern_id|escapejs }}',
+                        '{{ intern.degree|escapejs }}',
+                        '{{ intern.university|escapejs }}'
+                    )"
+                >
+                    <span class="schedule-intern-avatar">
+                        {{ intern.full_name|default:"I"|slice:":1"|upper }}
+                    </span>
+                    <span class="schedule-intern-meta">
+                        <span class="schedule-intern-name">{{ intern.full_name }}</span>
+                        <span class="schedule-intern-detail">{{ intern.intern_id }} · {{ intern.degree }} · {{ intern.university }}</span>
+                    </span>
+                    <i class="fa-solid fa-chevron-right schedule-intern-arrow"></i>
+                </button>
+                {% empty %}
+                <div class="schedule-state">No interns are available.</div>
+                {% endfor %}
+            </div>
+
+            <div id="scheduleNoInternResults" class="schedule-state" style="display:none;">
+                No interns match your search.
+            </div>
+        </section>
+
+        <!-- Selected intern schedule view -->
+        <section id="scheduleDetailView" style="display:none;">
+            <button type="button" class="schedule-back-btn" onclick="showScheduleInternPicker()">
+                <i class="fa-solid fa-arrow-left"></i> All Interns
+            </button>
+
+            <div class="schedule-selected-intern">
+                <h3 id="scheduleSelectedInternName"></h3>
+                <p id="scheduleSelectedInternMeta"></p>
+            </div>
+
+            <div id="scheduleDrawerLoading" class="schedule-state" style="display:none;">
+                <i class="fa-solid fa-spinner fa-spin"></i> Loading schedule...
+            </div>
+
+            <div id="scheduleDrawerError" class="schedule-error" style="display:none;"></div>
+
+            <div id="scheduleEmptyState" class="schedule-state" style="display:none;">
+                <i class="fa-regular fa-calendar" style="font-size:1.8rem; display:block; margin-bottom:10px;"></i>
+                No weekly schedule has been assigned yet.<br>
+                <span style="font-size:0.76rem;">Use “Add Week” below to create the first week.</span>
+            </div>
+
+            <div id="scheduleWeeksContainer"></div>
+
+            <button type="button" class="schedule-add-week" onclick="addScheduleWeek()">
+                <i class="fa-solid fa-plus"></i> Add Week
+            </button>
+        </section>
+    </div>
+</aside>
+
 {% endblock %}
 
 {% block scripts %}
@@ -1260,5 +1677,386 @@
             }
         });
     });
+
+
+    // ==========================================
+    // Manage Intern Schedules Drawer
+    // ==========================================
+    let activeScheduleInternId = null;
+    let scheduleNewWeekCounter = 0;
+
+    function openScheduleDrawer() {
+        activeScheduleInternId = null;
+        scheduleNewWeekCounter = 0;
+
+        document.getElementById('scheduleDrawerOverlay').classList.add('active');
+        document.getElementById('scheduleDrawer').classList.add('active');
+        document.getElementById('scheduleDrawer').setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+
+        showScheduleInternPicker();
+
+        const search = document.getElementById('scheduleInternSearch');
+        search.value = '';
+        filterScheduleInterns();
+        setTimeout(() => search.focus(), 200);
+    }
+
+    function closeScheduleDrawer() {
+        document.getElementById('scheduleDrawerOverlay').classList.remove('active');
+        document.getElementById('scheduleDrawer').classList.remove('active');
+        document.getElementById('scheduleDrawer').setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        activeScheduleInternId = null;
+        document.getElementById('scheduleWeeksContainer').innerHTML = '';
+        document.getElementById('scheduleDrawerError').style.display = 'none';
+        document.getElementById('scheduleEmptyState').style.display = 'none';
+    }
+
+    function showScheduleInternPicker() {
+        activeScheduleInternId = null;
+        document.getElementById('scheduleInternPickerView').style.display = 'block';
+        document.getElementById('scheduleDetailView').style.display = 'none';
+        document.getElementById('scheduleDrawerTitle').textContent = 'Manage Schedules';
+        document.getElementById('scheduleDrawerSubtitle').textContent = 'Choose an intern to manage their weekly schedule and course outline.';
+        document.getElementById('scheduleWeeksContainer').innerHTML = '';
+        document.getElementById('scheduleDrawerError').style.display = 'none';
+        document.getElementById('scheduleEmptyState').style.display = 'none';
+    }
+
+    function filterScheduleInterns() {
+        const query = (document.getElementById('scheduleInternSearch').value || '').trim().toLowerCase();
+        const items = Array.from(document.querySelectorAll('#scheduleInternList .schedule-intern-item'));
+        let visible = 0;
+
+        items.forEach((item) => {
+            const haystack = (item.dataset.search || '').toLowerCase();
+            const match = !query || haystack.includes(query);
+            item.style.display = match ? 'flex' : 'none';
+            if (match) visible += 1;
+        });
+
+        document.getElementById('scheduleNoInternResults').style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    document.getElementById('scheduleInternSearch').addEventListener('input', filterScheduleInterns);
+
+    async function selectScheduleIntern(internId, fullName, internCode, degree, university) {
+        activeScheduleInternId = internId;
+        scheduleNewWeekCounter = 0;
+
+        document.getElementById('scheduleInternPickerView').style.display = 'none';
+        document.getElementById('scheduleDetailView').style.display = 'block';
+        document.getElementById('scheduleDrawerTitle').textContent = 'Weekly Schedule & Course Outline';
+        document.getElementById('scheduleDrawerSubtitle').textContent = 'Manage each internship week without leaving the admin dashboard.';
+        document.getElementById('scheduleSelectedInternName').textContent = fullName || 'Intern';
+
+        const meta = [internCode, degree, university].filter(Boolean).join(' · ');
+        document.getElementById('scheduleSelectedInternMeta').textContent = meta;
+
+        await loadInternSchedule();
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && document.getElementById('scheduleDrawer').classList.contains('active')) {
+            closeScheduleDrawer();
+        }
+    });
+
+    function escapeScheduleHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    async function scheduleFetchJson(url, options = {}) {
+        const response = await fetch(url, options);
+        const responseText = await response.text();
+        let data = {};
+
+        try {
+            data = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+            console.error('Schedule API returned non-JSON response:', responseText);
+            throw new Error(`Server returned ${response.status} instead of JSON.`);
+        }
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Schedule request failed.');
+        }
+
+        return data;
+    }
+
+    async function loadInternSchedule() {
+        if (!activeScheduleInternId) return;
+
+        const loading = document.getElementById('scheduleDrawerLoading');
+        const errorBox = document.getElementById('scheduleDrawerError');
+        const emptyState = document.getElementById('scheduleEmptyState');
+        const container = document.getElementById('scheduleWeeksContainer');
+
+        loading.style.display = 'block';
+        errorBox.style.display = 'none';
+        emptyState.style.display = 'none';
+        container.innerHTML = '';
+
+        try {
+            const data = await scheduleFetchJson(`/intern/${activeScheduleInternId}/schedule/`);
+            loading.style.display = 'none';
+
+            if (!data.weeks || data.weeks.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            data.weeks.forEach((week) => renderScheduleWeek(week));
+        } catch (error) {
+            loading.style.display = 'none';
+            errorBox.textContent = error.message;
+            errorBox.style.display = 'block';
+        }
+    }
+
+    function renderScheduleWeek(week) {
+        const container = document.getElementById('scheduleWeeksContainer');
+        document.getElementById('scheduleEmptyState').style.display = 'none';
+
+        const key = week.id ? `saved-${week.id}` : `new-${++scheduleNewWeekCounter}`;
+        const wrapper = document.createElement('section');
+        wrapper.id = `schedule-week-${key}`;
+        wrapper.dataset.weekId = week.id || '';
+        wrapper.className = 'schedule-week-card';
+
+        const departmentOptions = `
+            <option value="">Select Department</option>
+            {% for dept in departments %}
+            <option value="{{ dept.id }}" ${String(week.department_id || '') === '{{ dept.id }}' ? 'selected' : ''}>{{ dept.name|escapejs }}</option>
+            {% endfor %}
+        `;
+
+        const fileName = week.course_outline_file_name || '';
+        const fileUrl = week.course_outline_file_url || '';
+
+        const deleteButton = week.id
+            ? `<button type="button" class="schedule-delete-week" onclick="deleteScheduleWeek(${week.id}, '${key}')"><i class="fa-solid fa-trash-can"></i> Delete Week</button>`
+            : `<button type="button" class="schedule-delete-week" onclick="removeUnsavedScheduleWeek('${key}')"><i class="fa-solid fa-xmark"></i> Remove</button>`;
+
+        const currentFile = fileName
+            ? `<div class="schedule-current-file">Current file: ${fileUrl ? `<a href="${escapeScheduleHtml(fileUrl)}" target="_blank" rel="noopener" style="color:var(--primary);">${escapeScheduleHtml(fileName)}</a>` : `<strong>${escapeScheduleHtml(fileName)}</strong>`}</div>`
+            : '';
+
+        wrapper.innerHTML = `
+            <div class="schedule-week-head">
+                <strong>Week ${escapeScheduleHtml(week.week_number || '')}</strong>
+                ${deleteButton}
+            </div>
+
+            <div class="schedule-week-content">
+                <div class="schedule-field">
+                    <label class="schedule-label">Week Number *</label>
+                    <input type="number" min="1" class="form-control schedule-week-number" value="${escapeScheduleHtml(week.week_number || '')}" required>
+                </div>
+
+                <div class="schedule-field">
+                    <label class="schedule-label">Department *</label>
+                    <select class="form-control schedule-department" required>${departmentOptions}</select>
+                </div>
+
+                <div class="schedule-date-grid">
+                    <div class="schedule-field">
+                        <label class="schedule-label">Start Date *</label>
+                        <input type="date" class="form-control schedule-start-date" value="${escapeScheduleHtml(week.start_date || '')}" required>
+                    </div>
+                    <div class="schedule-field">
+                        <label class="schedule-label">End Date *</label>
+                        <input type="date" class="form-control schedule-end-date" value="${escapeScheduleHtml(week.end_date || '')}" required>
+                    </div>
+                </div>
+
+                <div class="schedule-outline-block">
+                    <div class="schedule-outline-heading">COURSE OUTLINE</div>
+
+                    <div class="schedule-field">
+                        <label class="schedule-label">Outline Title</label>
+                        <input type="text" maxlength="200" class="form-control schedule-outline-title" value="${escapeScheduleHtml(week.course_outline_title || '')}" placeholder="e.g. IT Operations Internship Training">
+                    </div>
+
+                    <div class="schedule-field">
+                        <label class="schedule-label">Type / Paste Course Outline</label>
+                        <textarea rows="7" class="form-control schedule-outline-text" placeholder="Enter the course outline here...">${escapeScheduleHtml(week.course_outline_text || '')}</textarea>
+                    </div>
+
+                    <div class="schedule-field">
+                        <label class="schedule-label">Upload Course Outline (PDF/DOC/DOCX)</label>
+                        ${currentFile}
+                        <input type="file" class="form-control schedule-outline-file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                    </div>
+                </div>
+
+                <div class="schedule-card-actions">
+                    <button type="button" class="btn schedule-save-week" onclick="saveScheduleWeek('${key}')">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Week
+                    </button>
+                </div>
+
+                <div class="schedule-week-message"></div>
+            </div>
+        `;
+
+        container.appendChild(wrapper);
+    }
+
+    function addScheduleWeek() {
+        if (!activeScheduleInternId) {
+            showToast('Select an intern first.', 'error');
+            return;
+        }
+
+        let highestWeek = 0;
+        document.querySelectorAll('#scheduleWeeksContainer .schedule-week-number').forEach((input) => {
+            const number = parseInt(input.value, 10);
+            if (!Number.isNaN(number) && number > highestWeek) highestWeek = number;
+        });
+
+        renderScheduleWeek({
+            id: null,
+            week_number: highestWeek + 1,
+            department_id: '',
+            start_date: '',
+            end_date: '',
+            course_outline_title: '',
+            course_outline_text: '',
+            course_outline_file_name: '',
+            course_outline_file_url: ''
+        });
+
+        const body = document.getElementById('scheduleDrawerBody');
+        requestAnimationFrame(() => body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' }));
+    }
+
+    function removeUnsavedScheduleWeek(key) {
+        const wrapper = document.getElementById(`schedule-week-${key}`);
+        if (wrapper) wrapper.remove();
+        if (!document.querySelector('#scheduleWeeksContainer .schedule-week-card')) {
+            document.getElementById('scheduleEmptyState').style.display = 'block';
+        }
+    }
+
+    async function saveScheduleWeek(key) {
+        const wrapper = document.getElementById(`schedule-week-${key}`);
+        if (!wrapper || !activeScheduleInternId) return;
+
+        const message = wrapper.querySelector('.schedule-week-message');
+        const saveButton = wrapper.querySelector('.schedule-save-week');
+        const weekNumber = wrapper.querySelector('.schedule-week-number').value.trim();
+        const departmentId = wrapper.querySelector('.schedule-department').value.trim();
+        const startDate = wrapper.querySelector('.schedule-start-date').value.trim();
+        const endDate = wrapper.querySelector('.schedule-end-date').value.trim();
+
+        if (!weekNumber || !departmentId || !startDate || !endDate) {
+            showToast('Week number, department, start date and end date are required.', 'error');
+            return;
+        }
+
+        if (new Date(`${endDate}T00:00:00`) < new Date(`${startDate}T00:00:00`)) {
+            showToast('End date cannot be before start date.', 'error');
+            return;
+        }
+
+        const fileInput = wrapper.querySelector('.schedule-outline-file');
+        if (fileInput.files && fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const allowedExtensions = ['pdf', 'doc', 'docx'];
+            const extension = (file.name.split('.').pop() || '').toLowerCase();
+
+            if (!allowedExtensions.includes(extension)) {
+                showToast('Course outline must be a PDF, DOC or DOCX file.', 'error');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('Course outline file must be 10 MB or smaller.', 'error');
+                return;
+            }
+        }
+
+        const formData = new FormData();
+        if (wrapper.dataset.weekId) formData.append('week_id', wrapper.dataset.weekId);
+        formData.append('week_number', weekNumber);
+        formData.append('department_id', departmentId);
+        formData.append('start_date', startDate);
+        formData.append('end_date', endDate);
+        formData.append('course_outline_title', wrapper.querySelector('.schedule-outline-title').value.trim());
+        formData.append('course_outline_text', wrapper.querySelector('.schedule-outline-text').value);
+
+        if (fileInput.files && fileInput.files.length > 0) {
+            formData.append('course_outline_file', fileInput.files[0]);
+        }
+
+        const originalButtonHtml = saveButton.innerHTML;
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        message.style.display = 'none';
+
+        try {
+            const data = await scheduleFetchJson(
+                `/intern/${activeScheduleInternId}/schedule/week/save/`,
+                {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrftoken },
+                    body: formData
+                }
+            );
+
+            showToast(data.message || 'Schedule week saved successfully.', 'success');
+            await loadInternSchedule();
+        } catch (error) {
+            message.textContent = error.message;
+            message.style.color = 'var(--accent-rose)';
+            message.style.display = 'block';
+            showToast(error.message || 'Unable to save schedule week.', 'error');
+            saveButton.disabled = false;
+            saveButton.innerHTML = originalButtonHtml;
+        }
+    }
+
+    function deleteScheduleWeek(weekId, key) {
+        if (!activeScheduleInternId) return;
+
+        showConfirmModal({
+            variant: 'danger',
+            title: 'Delete Schedule Week',
+            message: 'Delete this week from the intern schedule? A week with submitted work cannot be deleted.',
+            confirmLabel: 'Delete Week',
+            onConfirm: async () => {
+                try {
+                    const data = await scheduleFetchJson(
+                        `/intern/${activeScheduleInternId}/schedule/week/${weekId}/delete/`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': csrftoken,
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            }
+                        }
+                    );
+
+                    showToast(data.message || 'Schedule week deleted.', 'success');
+                    await loadInternSchedule();
+                } catch (error) {
+                    showToast(error.message || 'Unable to delete schedule week.', 'error');
+                    const wrapper = document.getElementById(`schedule-week-${key}`);
+                    if (wrapper) {
+                        const message = wrapper.querySelector('.schedule-week-message');
+                        message.textContent = error.message;
+                        message.style.color = 'var(--accent-rose)';
+                        message.style.display = 'block';
+                    }
+                }
+            }
+        });
+    }
+
 </script>
 {% endblock %}

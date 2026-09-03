@@ -58,6 +58,10 @@ class InternshipWeek(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
 
+    course_outline_title = models.CharField(max_length=200,blank=True )
+    course_outline_text = models.TextField(blank=True)
+    course_outline_file = models.FileField(upload_to='course_outlines/',blank=True,null=True) 
+
     class Meta:
         unique_together = ('intern', 'week_number')
         ordering = ['week_number']

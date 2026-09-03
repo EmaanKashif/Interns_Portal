@@ -148,14 +148,41 @@
 
 </div>
 
-        {% for topic in week.topics.all %}
-        <div style="margin-bottom: 16px;">
-            <div
-                style="font-weight: 700; font-size: 0.92rem; color: var(--accent-sky); margin-bottom: 10px; padding-left: 6px; border-left: 3px solid var(--accent-sky);">
-                {{ topic.title }}
-            </div>
+        <!-- Course Outline File -->
+        {% if week.course_outline_file %}
+        <div style="
+            margin-bottom: 18px;
+            display: flex;
+            justify-content: flex-end;
+        ">
+            <a
+                href="{{ week.course_outline_file.url }}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-outline"
+                style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    height: 38px;
+                    padding: 7px 14px;
+                    border-color: rgba(99,102,241,0.38);
+                    background: rgba(99,102,241,0.10);
+                    color: #c7d2fe;
+                    text-decoration: none;
+                    white-space: nowrap;
+                "
+            >
+                <i class="fa-solid fa-file-lines"></i>
+                View Course Outline
+            </a>
+        </div>
+        {% endif %}
 
-            <div class="table-responsive">
+       {% for topic in week.topics.all %}
+            <div style="margin-bottom: 16px;">
+
+                <div class="table-responsive">
                 <table class="custom-table">
                     <thead>
                         <tr>

@@ -447,6 +447,83 @@
         }
     }
 
+
+    /* Intern roster readability refinements */
+    .intern-roster-card { width: 100%; }
+
+    .intern-roster-card .card-header {
+        padding-top: 18px;
+        padding-bottom: 18px;
+    }
+
+    .manage-schedules-btn {
+        padding: 10px 17px !important;
+        font-size: 0.94rem !important;
+        font-weight: 750;
+        white-space: nowrap;
+    }
+
+    .intern-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .intern-roster-table {
+        width: 100%;
+        min-width: 1180px;
+        table-layout: auto;
+    }
+
+    .intern-roster-table th {
+        padding: 15px 14px;
+        font-size: 0.80rem;
+        line-height: 1.35;
+        white-space: nowrap;
+    }
+
+    .intern-roster-table td {
+        padding: 18px 14px;
+        font-size: 0.92rem;
+        line-height: 1.5;
+        vertical-align: middle;
+    }
+
+    .intern-id-cell,
+    .intern-name-cell,
+    .intern-supervisor-cell,
+    .intern-status-cell,
+    .intern-actions-cell {
+        white-space: nowrap;
+    }
+
+    .intern-id-cell { min-width: 150px; }
+    .intern-name-cell { min-width: 155px; font-size: 0.96rem !important; }
+    .intern-university-cell { min-width: 190px; }
+    .intern-supervisor-cell { min-width: 175px; }
+    .intern-status-cell { min-width: 145px; }
+    .intern-token-cell { min-width: 265px; }
+    .intern-actions-cell { width: 96px; min-width: 96px; }
+
+    .intern-id-text {
+        font-size: 0.98rem !important;
+        white-space: nowrap;
+    }
+
+    .intern-active-text {
+        font-size: 0.86rem !important;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    @media (min-width: 1400px) {
+        .intern-roster-table { min-width: 1240px; }
+        .intern-roster-table th,
+        .intern-roster-table td {
+            padding-left: 17px;
+            padding-right: 17px;
+        }
+    }
+
 </style>
 
 <!-- Header Section -->
@@ -517,18 +594,18 @@
 </div>
 
 <!-- Main Admin Tables Card -->
-<div class="card">
+<div class="card intern-roster-card">
     <div class="card-header">
         <div class="card-title">
             <i class="fa-solid fa-list-check"></i> Intern Onboarding & Account Tokens
         </div>
-        <button type="button" onclick="openScheduleDrawer()" class="btn btn-outline" style="padding: 7px 14px; font-size: 0.85rem; white-space: nowrap;">
+        <button type="button" onclick="openScheduleDrawer()" class="btn btn-outline manage-schedules-btn">
             <i class="fa-solid fa-calendar-days"></i> Manage Schedules
         </button>
     </div>
 
-    <div class="table-responsive">
-        <table class="custom-table">
+    <div class="table-responsive intern-table-wrap">
+        <table class="custom-table intern-roster-table">
             <thead>
                 <tr>
                     <th>Intern ID</th>
@@ -545,22 +622,22 @@
             <tbody>
                 {% for intern in interns %}
                 <tr>
-                    <td>
-                        <strong style="color: var(--primary); font-family: monospace; font-size: 0.95rem;">{{ intern.intern_id }}</strong>
+                    <td class="intern-id-cell">
+                        <strong class="intern-id-text" style="color: var(--primary); font-family: monospace; font-size: 0.95rem;">{{ intern.intern_id }}</strong>
                     </td>
-                    <td style="font-weight: 700; color: #fff;">{{ intern.full_name }}</td>
-                    <td style="color: var(--text-muted); font-size: 0.85rem;">
+                    <td class="intern-name-cell" style="font-weight: 700; color: #fff;">{{ intern.full_name }}</td>
+                    <td class="intern-university-cell" style="color: var(--text-muted); font-size: 0.88rem;">
                         {{ intern.university }}<br>
                         <span style="color: var(--text-dim);">{{ intern.degree }}</span>
                     </td>
-                    <td>
+                    <td class="intern-supervisor-cell">
                         {% if intern.supervisor and intern.supervisor.user %}
                         <span style="color: #fff;"><i class="fa-solid fa-user-tie" style="color: var(--accent-emerald);"></i> {{ intern.supervisor.user.get_full_name }}</span>
                         {% else %}
                         <span style="color: var(--text-dim); font-style: italic;">Unassigned</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="intern-status-cell">
                         {% if not intern.is_active %}
                                 <span class="badge badge-removed">
                                     <i class="fa-solid fa-user-slash"></i> Removed
@@ -577,7 +654,7 @@
                                 </span>
                             {% endif %}
                     </td>
-                    <td>
+                    <td class="intern-token-cell">
                         {% if not intern.is_activated %}
                         <div style="display: flex; gap: 6px; align-items: center;">
                             <input type="text" id="token_{{ intern.id }}"
@@ -590,10 +667,10 @@
                             </button>
                         </div>
                         {% else %}
-                        <span style="color: var(--text-dim); font-size: 0.8rem;">Account Active ({{ intern.user.email }})</span>
+                        <span class="intern-active-text" style="color: var(--text-dim); font-size: 0.8rem;">Account Active ({{ intern.user.email }})</span>
                         {% endif %}
                     </td>
-                    <td style="text-align: center;">
+                    <td class="intern-actions-cell" style="text-align: center;">
                         <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
                             <button type="button"
                                 onclick="openEditInternModal(

@@ -162,6 +162,15 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY")
 SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "course-outline")
 
+if SUPABASE_URL and SUPABASE_SECRET_KEY:
+    STORAGES = {
+        "default": {
+            "BACKEND": "intern_portal.supabase_storage.SupabaseStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 # Auth redirects
 LOGIN_URL = 'accounts:login'

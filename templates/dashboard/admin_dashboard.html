@@ -515,6 +515,15 @@
         overflow-wrap: anywhere;
     }
 
+    .intern-row-removed {
+        opacity: 0.72;
+        background: rgba(244, 63, 94, 0.025);
+    }
+
+    .intern-row-removed:hover {
+        opacity: 0.9;
+    }
+
     @media (min-width: 1400px) {
         .intern-roster-table { min-width: 1240px; }
         .intern-roster-table th,
@@ -621,7 +630,7 @@
             </thead>
             <tbody>
                 {% for intern in interns %}
-                <tr>
+                <tr{% if not intern.is_active %} class="intern-row-removed"{% endif %}>
                     <td class="intern-id-cell">
                         <strong class="intern-id-text" style="color: var(--primary); font-family: monospace; font-size: 0.95rem;">{{ intern.intern_id }}</strong>
                     </td>
@@ -689,7 +698,7 @@
                             <button onclick="removeIntern({{ intern.id }}, '{{ intern.full_name|escapejs }}')"
                                 class="icon-btn icon-btn-danger"
                                 title="Remove from active roster" aria-label="Remove intern">
-                                <i class="fa-solid fa-trash-can"></i>
+                                <i class="fa-solid fa-user-slash"></i>
                             </button>
                             {% else %}
                             <button onclick="restoreIntern({{ intern.id }}, '{{ intern.full_name|escapejs }}')"
@@ -1201,7 +1210,7 @@
             </div>
 
             <div id="scheduleInternList" class="schedule-intern-list">
-                {% for intern in interns %}
+                {% for intern in schedule_interns %}
                 <button
                     type="button"
                     class="schedule-intern-item"
@@ -1274,25 +1283,26 @@
     // const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
     function getCurrentCsrfToken() {
-        const csrfTnput = document.querySelector(
+        const csrfInput = document.querySelector(
             'input[name="csrfmiddlewaretoken"]'
         );
 
-        if (csrfInput && csrfTnput.value){
+        if (csrfInput && csrfInput.value) {
             return csrfInput.value;
         }
 
         const cookies = document.cookie.split(';');
 
-        for (let cookie of cookies){
+        for (let cookie of cookies) {
             cookie = cookie.trim();
 
-            if (cookie.startsWith('csrftoken=')){
+            if (cookie.startsWith('csrftoken=')) {
                 return decodeURIComponent(
                     cookie.substring('csrftoken='.length)
                 );
             }
         }
+
         return '';
     }
 
@@ -1723,7 +1733,7 @@
             try {
                 const response = await fetch('/create-admin/', {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': csrftoken },
+                    headers: { 'X-CSRFToken': getCurrentCsrfToken() },
                     body: formData
                 });
 
@@ -2136,7 +2146,7 @@
                         {
                             method: 'POST',
                             headers: {
-                                'X-CSRFToken': csrftoken,
+                                'X-CSRFToken': getCurrentCsrfToken(),
                                 'Content-Type': 'application/x-www-form-urlencoded'
                             }
                         }

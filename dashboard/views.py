@@ -13,6 +13,15 @@ from accounts.decorators import role_required
 from accounts.models import InternProfile, SupervisorProfile, User
 from .models import Message, Notification
 
+
+def _is_admin_user(user):
+    """Return True for portal admins, Django staff users, and superusers."""
+    return (
+        user.role == User.ROLE_ADMIN
+        or user.is_superuser
+        or user.is_staff
+    )
+
 # ==========================================
 # Official IFL Internship Program Rotation Schedule Matrix
 # ==========================================
@@ -135,6 +144,15 @@ def admin_dashboard(request):
   interns = InternProfile.objects.select_related(
       'supervisor__user', 'user'
   ).all()
+
+  # Manage Schedules must show active interns only.
+  # The main roster still receives `interns`, including removed/archived interns.
+  schedule_interns = InternProfile.objects.filter(
+      is_active=True
+  ).select_related(
+      'supervisor__user', 'user'
+  )
+
   departments = Department.objects.all()
 
   context = {
@@ -144,6 +162,7 @@ def admin_dashboard(request):
       'total_supervisors': total_supervisors,
       'total_departments': total_departments,
       'interns': interns,
+      'schedule_interns': schedule_interns,
       'supervisors': supervisors,
       'departments': departments,
   }
@@ -411,18 +430,17 @@ def get_intern_schedule_api(request, intern_id):
     Returns the complete manually assigned schedule for an intern.
     """
 
-    if (
-        request.user.role != User.ROLE_ADMIN
-        and not request.user.is_superuser
-    ):
+    if not _is_admin_user(request.user):
         return JsonResponse({
             'success': False,
             'error': 'Permission denied.'
         }, status=403)
 
+    # Removed/archived interns are intentionally excluded from schedule management.
     intern = get_object_or_404(
         InternProfile,
-        id=intern_id
+        id=intern_id,
+        is_active=True
     )
 
     weeks = (
@@ -514,18 +532,17 @@ def save_intern_schedule_week_api(request, intern_id):
     Creates or updates one week of an intern's schedule.
     """
 
-    if (
-        request.user.role != User.ROLE_ADMIN
-        and not request.user.is_superuser
-    ):
+    if not _is_admin_user(request.user):
         return JsonResponse({
             'success': False,
             'error': 'Permission denied.'
         }, status=403)
 
+    # Only active interns can receive or edit schedules.
     intern = get_object_or_404(
         InternProfile,
-        id=intern_id
+        id=intern_id,
+        is_active=True
     )
 
     week_id = request.POST.get('week_id', '').strip()
@@ -698,7 +715,19 @@ def save_intern_schedule_week_api(request, intern_id):
 
         week.course_outline_file = uploaded_file
 
-    week.save()
+    try:
+        week.save()
+    except Exception as exc:
+        # Keep AJAX responses as JSON instead of returning Django's HTML 500 page.
+        # The server log still contains the underlying storage/database error.
+        return JsonResponse({
+            'success': False,
+            'error': (
+                'The week could not be saved. '
+                'If a file was attached, check the configured file storage. '
+                f'Details: {exc}'
+            )
+        }, status=500)
 
     # ----------------------------
     # Ensure the week has a topic
@@ -733,10 +762,7 @@ def delete_intern_schedule_week_api(
     Deletes a schedule week if it has no submitted work.
     """
 
-    if (
-        request.user.role != User.ROLE_ADMIN
-        and not request.user.is_superuser
-    ):
+    if not _is_admin_user(request.user):
         return JsonResponse({
             'success': False,
             'error': 'Permission denied.'
@@ -744,7 +770,8 @@ def delete_intern_schedule_week_api(
 
     intern = get_object_or_404(
         InternProfile,
-        id=intern_id
+        id=intern_id,
+        is_active=True
     )
 
     week = get_object_or_404(
@@ -810,7 +837,7 @@ def update_intern_supervisor_api(request, intern_id):
 @require_POST
 def remove_intern_api(request, intern_id):
     # Admin / superuser can remove any intern
-    if request.user.role == User.ROLE_ADMIN or request.user.is_superuser:
+    if _is_admin_user(request.user):
         intern = get_object_or_404(
             InternProfile,
             id=intern_id
@@ -848,7 +875,7 @@ def remove_intern_api(request, intern_id):
 @require_POST
 def restore_intern_api(request, intern_id):
     # Admin / superuser can restore any intern
-    if request.user.role == User.ROLE_ADMIN or request.user.is_superuser:
+    if _is_admin_user(request.user):
         intern = get_object_or_404(
             InternProfile,
             id=intern_id

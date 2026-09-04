@@ -1273,6 +1273,29 @@
     // If this page ever runs standalone (without base.html), uncomment the line below:
     // const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
+    function getCurrentCsrfToken() {
+        const csrfTnput = document.querySelector(
+            'input[name="csrfmiddlewaretoken"]'
+        );
+
+        if (csrfInput && csrfTnput.value){
+            return csrfInput.value;
+        }
+
+        const cookies = document.cookie.split(';');
+
+        for (let cookie of cookies){
+            cookie = cookie.trim();
+
+            if (cookie.startsWith('csrftoken=')){
+                return decodeURIComponent(
+                    cookie.substring('csrftoken='.length)
+                );
+            }
+        }
+        return '';
+    }
+
     function openIssueModal() { document.getElementById('issueModal').classList.add('active'); }
     function openAdminModal() { document.getElementById('adminModal').classList.add('active'); }
     function openSupervisorModal() { document.getElementById('supervisorModal').classList.add('active'); }

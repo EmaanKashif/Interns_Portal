@@ -8,3 +8,6 @@ media/
 .vercel
 .env*
 staticfiles/
+
+.vercel
+.env*

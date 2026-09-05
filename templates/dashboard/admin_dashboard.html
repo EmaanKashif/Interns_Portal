@@ -2108,12 +2108,12 @@
         saveButton.disabled = true;
         saveButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
         message.style.display = 'none';
-        try {
+       try {
             const data = await scheduleFetchJson(
                 `/intern/${activeScheduleInternId}/schedule/week/save/`,
                 {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': csrftoken },
+                    headers: { 'X-CSRFToken': getCurrentCsrfToken() },
                     body: formData
                 }
             );

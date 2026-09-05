@@ -1,5 +1,6 @@
 import os
 from django.core.exceptions import ValidationError
+from intern_portal.supabase_storage import SupabaseStorage
 from django.db import models
 
 
@@ -61,6 +62,7 @@ class InternshipWeek(models.Model):
     course_outline_title = models.CharField(max_length=200,blank=True )
     course_outline_text = models.TextField(blank=True)
     course_outline_file = models.FileField(
+        storage=SupabaseStorage(),
         upload_to='course_outlines/',
         blank=True,
         null=True

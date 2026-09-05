@@ -42,6 +42,15 @@ def submit_task_api(request, task_id):
         )
         submission.full_clean()
         submission.save()
+    except ValidationError as val_err:
+        return JsonResponse({
+            'success':False,
+            'error':val_err.messages[0] if hasattr(val_err,'messages')else str(val_err)},status=400)
+    except Exception as exc:
+        return JsonResponse({
+            'success': False,
+            'error':f'Submission failed: {str(exc)}'
+        },status=500)
 
         # Update task status to Completed or In Progress if specified
         new_status = request.POST.get('status', DailyTask.STATUS_COMPLETED)

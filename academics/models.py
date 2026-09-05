@@ -129,6 +129,7 @@ class TaskSubmission(models.Model):
     intern = models.ForeignKey('accounts.InternProfile', on_delete=models.CASCADE, related_name='task_submissions')
     submission_text = models.TextField(blank=True)
     attached_file = models.FileField(
+        storage=SupabaseStorage(),
         upload_to='submissions/',
         validators=[validate_submission_file],
         blank=True, null=True

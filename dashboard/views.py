@@ -7,17 +7,17 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django.db import transaction
 
 from academics.models import DailyTask, Department, InternshipWeek, TaskSubmission, Topic
 from accounts.decorators import role_required
 from accounts.models import InternProfile, SupervisorProfile, User
 from .models import Message, Notification
 
-
-def _is_admin_user(user):
-    """Return True for portal admins, Django staff users, and superusers."""
+def _can_manage_schedules(user):
+    """Return True for portal admins, supervisors, staff, and superusers."""
     return (
-        user.role == User.ROLE_ADMIN
+        user.role in [User.ROLE_ADMIN, User.ROLE_SUPERVISOR]
         or user.is_superuser
         or user.is_staff
     )
@@ -426,11 +426,11 @@ def create_custom_week_api(request):
 @login_required
 def get_intern_schedule_api(request, intern_id):
     """
-    Admin-only API:
     Returns the complete manually assigned schedule for an intern.
+    Accessible by Admins, Superusers, Staff, and Supervisors.
     """
 
-    if not _is_admin_user(request.user):
+    if not _can_manage_schedules(request.user):
         return JsonResponse({
             'success': False,
             'error': 'Permission denied.'
@@ -524,15 +524,18 @@ def get_intern_schedule_api(request, intern_id):
         'weeks': weeks_data
     })
 
+
+
 @login_required
 @require_POST
+@transaction.atomic
 def save_intern_schedule_week_api(request, intern_id):
     """
-    Admin-only API:
     Creates or updates one week of an intern's schedule.
+    Accessible by Admins, Superusers, Staff, and Supervisors.
     """
 
-    if not _is_admin_user(request.user):
+    if not _can_manage_schedules(request.user):
         return JsonResponse({
             'success': False,
             'error': 'Permission denied.'
@@ -718,15 +721,9 @@ def save_intern_schedule_week_api(request, intern_id):
     try:
         week.save()
     except Exception as exc:
-        # Keep AJAX responses as JSON instead of returning Django's HTML 500 page.
-        # The server log still contains the underlying storage/database error.
         return JsonResponse({
             'success': False,
-            'error': (
-                'The week could not be saved. '
-                'If a file was attached, check the configured file storage. '
-                f'Details: {exc}'
-            )
+            'error': f'Failed to save week or upload outline file: {str(exc)}'
         }, status=500)
 
     # ----------------------------
@@ -758,11 +755,11 @@ def delete_intern_schedule_week_api(
     week_id
 ):
     """
-    Admin-only API:
     Deletes a schedule week if it has no submitted work.
+    Accessible by Admins, Superusers, Staff, and Supervisors.
     """
 
-    if not _is_admin_user(request.user):
+    if not _can_manage_schedules(request.user):
         return JsonResponse({
             'success': False,
             'error': 'Permission denied.'

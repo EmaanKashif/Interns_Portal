@@ -2108,7 +2108,6 @@
         saveButton.disabled = true;
         saveButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
         message.style.display = 'none';
-
         try {
             const data = await scheduleFetchJson(
                 `/intern/${activeScheduleInternId}/schedule/week/save/`,
@@ -2126,11 +2125,13 @@
             message.style.color = 'var(--accent-rose)';
             message.style.display = 'block';
             showToast(error.message || 'Unable to save schedule week.', 'error');
-            saveButton.disabled = false;
-            saveButton.innerHTML = originalButtonHtml;
+        } finally {
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.innerHTML = originalButtonHtml;
+            }
         }
     }
-
     function deleteScheduleWeek(weekId, key) {
         if (!activeScheduleInternId) return;
 

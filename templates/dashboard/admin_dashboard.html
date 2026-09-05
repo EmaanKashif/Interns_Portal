@@ -1949,7 +1949,7 @@
         const fileUrl = week.course_outline_file_url || '';
 
         const deleteButton = week.id
-            ? `<button type="button" class="schedule-delete-week" onclick="deleteScheduleWeek(${week.id}, '${key}')"><i class="fa-solid fa-trash-can"></i> Delete Week</button>`
+            ? `<button type="button" class="schedule-delete-week" onclick="deleteScheduleWeek(${week.id}, '${key}', ${activeScheduleInternId})"><i class="fa-solid fa-trash-can"></i> Delete Week</button>`
             : `<button type="button" class="schedule-delete-week" onclick="removeUnsavedScheduleWeek('${key}')"><i class="fa-solid fa-xmark"></i> Remove</button>`;
 
         const currentFile = fileName
@@ -2132,8 +2132,13 @@
             }
         }
     }
-    function deleteScheduleWeek(weekId, key) {
-        if (!activeScheduleInternId) return;
+    function deleteScheduleWeek(weekId, key, passedInternId = null) {
+        const targetInternId = passedInternId || activeScheduleInternId;
+
+        if (!targetInternId) {
+            showToast('Intern session lost. Please re-select the intern.', 'error');
+            return;
+        }
 
         showConfirmModal({
             variant: 'danger',
@@ -2143,7 +2148,7 @@
             onConfirm: async () => {
                 try {
                     const data = await scheduleFetchJson(
-                        `/intern/${activeScheduleInternId}/schedule/week/${weekId}/delete/`,
+                        `/intern/${targetInternId}/schedule/week/${weekId}/delete/`,
                         {
                             method: 'POST',
                             headers: {
@@ -2154,6 +2159,7 @@
                     );
 
                     showToast(data.message || 'Schedule week deleted.', 'success');
+                    activeScheduleInternId = targetInternId;
                     await loadInternSchedule();
                 } catch (error) {
                     showToast(error.message || 'Unable to delete schedule week.', 'error');

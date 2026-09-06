@@ -143,7 +143,6 @@ DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 if DATABASE_URL:
     import dj_database_url
 
-    # Convert old postgres:// scheme if necessary
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace(
             'postgres://',

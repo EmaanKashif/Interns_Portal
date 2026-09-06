@@ -143,13 +143,10 @@ DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
 if DATABASE_URL:
     import dj_database_url
-    from urllib.parse import unquote
 
-    # Sanitize postgres:// to postgresql:// if needed
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-    # Directly parse the connection string without ssl_require forcing failures
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
@@ -164,7 +161,6 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-
 # ============================================================
 # PASSWORD VALIDATION
 # ============================================================

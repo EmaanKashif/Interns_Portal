@@ -134,7 +134,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
-
 # ============================================================
 # DATABASE SETUP (PRODUCTION SAFE)
 # ============================================================
@@ -144,7 +143,6 @@ DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 if DATABASE_URL:
     import dj_database_url
 
-    # Sanitize postgres:// to postgresql:// if needed
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 

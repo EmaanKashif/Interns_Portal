@@ -146,43 +146,59 @@ TEMPLATES = [
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
 
 
-# ============================================================
-# DATABASE SETUP (PRODUCTION SAFE - PSYCOPG 3)
-# ============================================================
+try:
+    import dj_database_url
+except ImportError:
+    dj_database_url = None
+    print("⚠️ dj-database-url not installed. Using SQLite.", file=sys.stderr)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
-if DATABASE_URL:
-    from urllib.parse import urlparse, unquote
-
-    if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-
-    url = urlparse(DATABASE_URL)
-
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg3',  # Uses psycopg 3
-            'NAME': url.path[1:],
-            'USER': url.username,
-            'PASSWORD': unquote(url.password) if url.password else '',
-            'HOST': url.hostname,
-            'PORT': url.port or 5432,
-            'CONN_MAX_AGE': 600,
-            'OPTIONS': {
-                'sslmode': 'require',
-            },
+def setup_database():
+    """Setup database with proper error handling"""
+    
+    # If no DATABASE_URL, use SQLite
+    if not DATABASE_URL:
+        return {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
         }
-    }
-else:
-    DATABASES = {
+    
+    # If dj-database-url is available, use it
+    if dj_database_url:
+        try:
+            # Parse the URL safely
+            config = dj_database_url.parse(DATABASE_URL)
+            
+            # Add connection pool settings
+            config.update({
+                'CONN_MAX_AGE': 600,
+                'OPTIONS': {
+                    'sslmode': 'require',
+                }
+            })
+            
+            return {'default': config}
+        except Exception as e:
+            print(f"⚠️ Error parsing DATABASE_URL: {e}", file=sys.stderr)
+            print(f"⚠️ Falling back to SQLite", file=sys.stderr)
+    
+    # Fallback to SQLite
+    return {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 
+DATABASES = setup_database()
 
+# Print database info (helpful for debugging)
+if DEBUG:
+    db_engine = DATABASES['default']['ENGINE']
+    print(f"📊 Using database engine: {db_engine}")
 # ============================================================
 # PASSWORD VALIDATION
 # ============================================================

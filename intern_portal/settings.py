@@ -135,53 +135,35 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
 
-
 # ============================================================
 # DATABASE SETUP (PRODUCTION SAFE)
 # ============================================================
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
-# Default SQLite configuration (Fallback for build steps / local dev)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
 if DATABASE_URL:
-    try:
-        import dj_database_url
-        from urllib.parse import urlparse, quote_plus, unquote
+    import dj_database_url
+    from urllib.parse import unquote
 
-        # Fix unencoded or special character issues in password strings safely
-        if DATABASE_URL.startswith('postgres://') or DATABASE_URL.startswith('postgresql://'):
-            parsed = urlparse(DATABASE_URL)
-            if parsed.password:
-                # Decodes raw special chars first then cleanly re-encodes
-                clean_pass = quote_plus(unquote(parsed.password))
-                user_part = f"{parsed.username}:{clean_pass}" if parsed.username else ""
-                host_part = parsed.hostname or ""
-                port_part = f":{parsed.port}" if parsed.port else ""
-                db_name = parsed.path or ""
-                query_part = f"?{parsed.query}" if parsed.query else ""
-                
-                DATABASE_URL = f"postgresql://{user_part}@{host_part}{port_part}{db_name}{query_part}"
+    # Sanitize postgres:// to postgresql:// if needed
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-        parsed_config = dj_database_url.parse(
-            DATABASE_URL,
+    # Directly parse the connection string without ssl_require forcing failures
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
             conn_max_age=600,
             ssl_require=False
         )
-
-        if parsed_config and 'ENGINE' in parsed_config:
-            DATABASES['default'] = parsed_config
-
-    except Exception:
-        # Guarantees Vercel compilation succeeds even if DATABASE_URL fails to parse during build
-        pass
-
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # ============================================================
 # PASSWORD VALIDATION

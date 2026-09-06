@@ -134,86 +134,32 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
-
 # ============================================================
-# DATABASE SETUP - TRANSACTION POOLER FOR VERCEL
+# DATABASE SETUP - PRODUCTION SAFE
 # ============================================================
 
 import dj_database_url
-from urllib.parse import urlparse
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
-def get_database_config():
-    """Get database configuration using Transaction pooler for Vercel"""
-    
-    # If no DATABASE_URL, use SQLite
-    if not DATABASE_URL:
-        print("⚠️ No DATABASE_URL found, using SQLite", file=sys.stderr)
-        return {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
-    
-    try:
-        # Parse the URL
-        parsed = urlparse(DATABASE_URL)
-        is_supabase = 'supabase.co' in parsed.hostname if parsed.hostname else False
-        
-        # Check if using correct port for transaction pooler
-        if is_supabase:
-            if parsed.port == 5432:
-                print("❌ ERROR: Using direct connection (port 5432).", file=sys.stderr)
-                print("❌ For Vercel serverless functions, you MUST use the Transaction pooler (port 6543).", file=sys.stderr)
-                print("❌ Please update your DATABASE_URL in Vercel environment variables.", file=sys.stderr)
-                # Fallback to SQLite
-                return {
-                    'default': {
-                        'ENGINE': 'django.db.backends.sqlite3',
-                        'NAME': BASE_DIR / 'db.sqlite3',
-                    }
-                }
-            elif parsed.port == 6543:
-                print("✅ Using Transaction pooler (port 6543) - Correct for Vercel!", file=sys.stderr)
-            else:
-                print(f"⚠️ Using port {parsed.port}. For Vercel, use port 6543.", file=sys.stderr)
-        
-        # Parse the database URL
-        config = dj_database_url.parse(DATABASE_URL)
-        
-        # Vercel-specific optimizations for serverless
-        db_options = {
-            'sslmode': 'require',
-            'connect_timeout': 30,
-            'keepalives': 1,
-            'keepalives_idle': 30,
-            'keepalives_interval': 10,
-            'keepalives_count': 5,
-        }
-        
-        # CRITICAL: Disable connection pooling for serverless
-        config['CONN_MAX_AGE'] = 0
-        config['OPTIONS'] = db_options
-        
-        print(f"✅ Database configured: {config['ENGINE']}", file=sys.stderr)
-        if is_supabase:
-            print(f"✅ Supabase Transaction pooler: {config['HOST']}:{config['PORT']}", file=sys.stderr)
-        
-        return {'default': config}
-        
-    except Exception as e:
-        print(f"⚠️ Error parsing DATABASE_URL: {e}", file=sys.stderr)
-        print(f"⚠️ Falling back to SQLite", file=sys.stderr)
-        return {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
+if DATABASE_URL:
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-DATABASES = get_database_config()
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=0,  # Required for serverless / pgBouncer connection pooling
+            ssl_require=False
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # ============================================================
 # PASSWORD VALIDATION
@@ -244,14 +190,11 @@ USE_I18N = True
 USE_TZ = True
 
 # ============================================================
-# STATIC FILES
+# STATIC FILES (READ-ONLY SAFE)
 # ============================================================
 
 STATIC_URL = '/static/'
-
-# Ensure the directory exists
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATIC_ROOT.mkdir(exist_ok=True)
 
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
@@ -260,12 +203,12 @@ STATICFILES_DIRS = [
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ============================================================
-# MEDIA FILES
+# MEDIA FILES (READ-ONLY SAFE)
 # ============================================================
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-MEDIA_ROOT.mkdir(exist_ok=True)
+
 
 # ============================================================
 # SUPABASE STORAGE

@@ -142,7 +142,7 @@ WSGI_APPLICATION = 'intern_portal.wsgi.application'
 
 
 # ============================================================
-# DATABASE SETUP (PRODUCTION SAFE)
+# DATABASE SETUP (PRODUCTION SAFE - PSYCOPG 3)
 # ============================================================
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
@@ -150,7 +150,6 @@ DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 if DATABASE_URL:
     from urllib.parse import urlparse, unquote
 
-    # Replace postgres:// with postgresql:// if needed
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
@@ -158,8 +157,8 @@ if DATABASE_URL:
 
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': url.path[1:],  # Remove leading slash
+            'ENGINE': 'django.db.backends.postgresql_psycopg3',  # Uses psycopg 3
+            'NAME': url.path[1:],
             'USER': url.username,
             'PASSWORD': unquote(url.password) if url.password else '',
             'HOST': url.hostname,

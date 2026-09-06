@@ -135,7 +135,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
 # ============================================================
-# DATABASE SETUP (PRODUCTION SAFE)
+# DATABASE SETUP
 # ============================================================
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
@@ -143,6 +143,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 if DATABASE_URL:
     import dj_database_url
 
+    # Convert old postgres:// scheme if necessary
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace(
             'postgres://',
@@ -154,16 +155,11 @@ if DATABASE_URL:
         'default': dj_database_url.config(
             default=DATABASE_URL,
             conn_max_age=600,
-            ssl_require=False,
+            ssl_require=True,
         )
     }
-
 else:
-    if IS_VERCEL:
-        raise RuntimeError(
-            'DATABASE_URL is not configured in Vercel Production.'
-        )
-
+    # SQLite for local development only
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

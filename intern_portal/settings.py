@@ -141,11 +141,27 @@ WSGI_APPLICATION = 'intern_portal.wsgi.application'
 # ============================================================
 # DATABASE
 # ============================================================
+# ============================================================
+# DATABASE
+# ============================================================
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
-if DATABASE_URL:
+if DATABASE_URL and (DATABASE_URL.startswith('postgres://') or DATABASE_URL.startswith('postgresql://')):
     import dj_database_url
+    from urllib.parse import urlparse, quote_plus
+
+    # Automatically fix passwords with special characters (@, #, $, etc.)
+    try:
+        parsed = urlparse(DATABASE_URL)
+        if parsed.password:
+            encoded_password = quote_plus(parsed.password)
+            safe_netloc = f"{parsed.username}:{encoded_password}@{parsed.hostname}"
+            if parsed.port:
+                safe_netloc += f":{parsed.port}"
+            DATABASE_URL = parsed._replace(netloc=safe_netloc).geturl()
+    except Exception:
+        pass
 
     DATABASES = {
         'default': dj_database_url.parse(

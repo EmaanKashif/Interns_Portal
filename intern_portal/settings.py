@@ -135,30 +135,35 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
 # ============================================================
-# DATABASE SETUP
+# DATABASE SETUP (PRODUCTION SAFE)
 # ============================================================
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
 if DATABASE_URL:
-    import dj_database_url
+    from urllib.parse import urlparse, unquote
 
+    # Replace postgres:// with postgresql:// if needed
     if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace(
-            'postgres://',
-            'postgresql://',
-            1
-        )
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+    url = urlparse(DATABASE_URL)
 
     DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=False,
-        )
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': url.path[1:],  # Remove leading slash
+            'USER': url.username,
+            'PASSWORD': unquote(url.password) if url.password else '',
+            'HOST': url.hostname,
+            'PORT': url.port or 5432,
+            'CONN_MAX_AGE': 600,
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+        }
     }
 else:
-    # SQLite for local development only
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

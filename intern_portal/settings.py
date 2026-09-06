@@ -138,34 +138,14 @@ WSGI_APPLICATION = 'intern_portal.wsgi.application'
 # DATABASE
 # ============================================================
 
-# ============================================================
-# DATABASE
-# ============================================================
-# ============================================================
-# DATABASE
-# ============================================================
-
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
-if DATABASE_URL and (DATABASE_URL.startswith('postgres://') or DATABASE_URL.startswith('postgresql://')):
+if DATABASE_URL:
     import dj_database_url
-    from urllib.parse import urlparse, quote_plus
-
-    # Automatically fix passwords with special characters (@, #, $, etc.)
-    try:
-        parsed = urlparse(DATABASE_URL)
-        if parsed.password:
-            encoded_password = quote_plus(parsed.password)
-            safe_netloc = f"{parsed.username}:{encoded_password}@{parsed.hostname}"
-            if parsed.port:
-                safe_netloc += f":{parsed.port}"
-            DATABASE_URL = parsed._replace(netloc=safe_netloc).geturl()
-    except Exception:
-        pass
 
     DATABASES = {
-        'default': dj_database_url.parse(
-            DATABASE_URL,
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
             conn_max_age=600,
             ssl_require=True
         )
@@ -177,7 +157,6 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-
 
 # ============================================================
 # PASSWORD VALIDATION

@@ -144,16 +144,26 @@ if DATABASE_URL:
     import dj_database_url
 
     if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+        DATABASE_URL = DATABASE_URL.replace(
+            'postgres://',
+            'postgresql://',
+            1
+        )
 
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
             conn_max_age=600,
-            ssl_require=False
+            ssl_require=False,
         )
     }
+
 else:
+    if IS_VERCEL:
+        raise RuntimeError(
+            'DATABASE_URL is not configured in Vercel Production.'
+        )
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

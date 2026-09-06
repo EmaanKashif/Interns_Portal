@@ -146,19 +146,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'intern_portal.wsgi.application'
 
 
-try:
-    import dj_database_url
-except ImportError:
-    dj_database_url = None
-    print("⚠️ dj-database-url not installed. Using SQLite.", file=sys.stderr)
+# ============================================================
+# DATABASE SETUP (VERCEL-OPTIMIZED)
+# ============================================================
+
+import os
+import sys
+import dj_database_url
+from urllib.parse import urlparse, unquote
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
-def setup_database():
-    """Setup database with proper error handling"""
+def get_database_config():
+    """Get database configuration optimized for Vercel"""
     
     # If no DATABASE_URL, use SQLite
     if not DATABASE_URL:
+        print("⚠️ No DATABASE_URL found, using SQLite", file=sys.stderr)
         return {
             'default': {
                 'ENGINE': 'django.db.backends.sqlite3',
@@ -166,39 +170,62 @@ def setup_database():
             }
         }
     
-    # If dj-database-url is available, use it
-    if dj_database_url:
-        try:
-            # Parse the URL safely
-            config = dj_database_url.parse(DATABASE_URL)
-            
-            # Add connection pool settings
-            config.update({
-                'CONN_MAX_AGE': 600,
-                'OPTIONS': {
-                    'sslmode': 'require',
-                }
-            })
-            
-            return {'default': config}
-        except Exception as e:
-            print(f"⚠️ Error parsing DATABASE_URL: {e}", file=sys.stderr)
-            print(f"⚠️ Falling back to SQLite", file=sys.stderr)
-    
-    # Fallback to SQLite
-    return {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+    try:
+        # Parse the URL manually to handle special cases
+        parsed = urlparse(DATABASE_URL)
+        
+        # Check if it's Supabase
+        is_supabase = 'supabase.co' in parsed.hostname if parsed.hostname else False
+        
+        # Use dj-database-url to parse
+        config = dj_database_url.parse(DATABASE_URL)
+        
+        # Vercel-specific optimizations
+        db_options = {
+            'sslmode': 'require',
+            'connect_timeout': 30,  # Increased timeout
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
         }
-    }
+        
+        # If using Supabase, apply specific settings
+        if is_supabase:
+            print("🔗 Configuring for Supabase on Vercel", file=sys.stderr)
+            
+            # Disable connection pooling for serverless
+            config['CONN_MAX_AGE'] = 0
+            
+            # Try to use the pooler URL if not already
+            if parsed.port == 5432:
+                print("⚠️ Using direct connection (port 5432). Consider using pooler (port 6543)", file=sys.stderr)
+            
+            # Force IPv4 by replacing hostname with IP if needed
+            # Uncomment and use if you have the IP address
+            # if 'db.' in parsed.hostname:
+            #     config['HOST'] = 'your-supabase-ip-address'
+        
+        config['OPTIONS'] = db_options
+        
+        return {'default': config}
+        
+    except Exception as e:
+        print(f"⚠️ Database config error: {e}", file=sys.stderr)
+        print(f"⚠️ Falling back to SQLite", file=sys.stderr)
+        return {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 
-DATABASES = setup_database()
+DATABASES = get_database_config()
 
-# Print database info (helpful for debugging)
+# Print for debugging
 if DEBUG:
-    db_engine = DATABASES['default']['ENGINE']
-    print(f"📊 Using database engine: {db_engine}")
+    print(f"📊 DATABASE_URL: {DATABASE_URL[:50]}...", file=sys.stderr)
+    print(f"📊 Database config: {DATABASES['default'].get('ENGINE')}", file=sys.stderr)
 # ============================================================
 # PASSWORD VALIDATION
 # ============================================================

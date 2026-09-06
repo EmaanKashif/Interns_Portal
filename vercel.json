@@ -5,7 +5,9 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
-        "runtime": "python3.11"
+        "runtime": "python3.11",
+        "memory": 1024,
+        "maxDuration": 10
       }
     }
   ],
@@ -20,6 +22,7 @@
     }
   ],
   "env": {
-    "DJANGO_SETTINGS_MODULE": "intern_portal.settings"
+    "DJANGO_SETTINGS_MODULE": "intern_portal.settings",
+    "PYTHONPATH": "."
   }
 }

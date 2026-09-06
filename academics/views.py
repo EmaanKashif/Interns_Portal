@@ -1,177 +1,242 @@
-import os
+import logging
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse, FileResponse, Http404
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
-from django.http import FileResponse, Http404, JsonResponse
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from .models import InternshipWeek, Topic, DailyTask, DepartmentAssignment
 
-from accounts.models import User
-from dashboard.models import Notification
-from .models import DailyTask, TaskSubmission
+logger = logging.getLogger(__name__)
 
+# --- Progress Calculation Engine ---
+
+def calculate_intern_progress(intern):
+    total_tasks = DailyTask.objects.filter(intern=intern).count()
+    completed_tasks = DailyTask.objects.filter(intern=intern, status='completed').count()
+    overall_progress = round((completed_tasks / total_tasks) * 100) if total_tasks > 0 else 0
+
+    dept_progress = {}
+    assignments = DepartmentAssignment.objects.filter(intern=intern)
+    for assign in assignments:
+        dept_tasks = DailyTask.objects.filter(intern=intern, topic__week__department=assign.department)
+        total_d = dept_tasks.count()
+        comp_d = dept_tasks.filter(status='completed').count()
+        dept_progress[assign.department.id] = {
+            'name': assign.department.name,
+            'progress': round((comp_d / total_d) * 100) if total_d > 0 else 0,
+            'start_date': assign.start_date,
+            'end_date': assign.end_date,
+            'weeks': assign.duration_in_weeks
+        }
+
+    return {
+        'overall': overall_progress,
+        'departments': dept_progress
+    }
+
+# --- Task Management Views ---
 
 @login_required
-@require_POST
-def submit_task_api(request, task_id):
-    """
-    API endpoint for interns to submit work and optional files for a task.
-    Backend RBAC: Intern can ONLY submit work for their own assigned task.
-    File upload is validated for type and 10MB size limit.
-    Triggers a notification to their assigned supervisor.
-    """
-    task = get_object_or_404(DailyTask, pk=task_id)
+def add_daily_task(request, topic_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+    topic = get_object_or_404(Topic, id=topic_id)
+    week = topic.week
+    
+    # Enforce Backend Week Locking
+    if week.is_locked:
+        return JsonResponse({
+            'error': '🔒 This week is locked because its deadline has passed. Late additions are not allowed.'
+        }, status=403)
+
+    # Server-side ownership verification
     intern_profile = getattr(request.user, 'intern_profile', None)
+    if not intern_profile:
+        return JsonResponse({'error': 'Unauthorized: Only interns can add tasks.'}, status=403)
 
-    if not intern_profile or task.topic.week.intern != intern_profile:
-        return JsonResponse({'success': False, 'error': 'Permission denied. You can only submit work for your assigned tasks.'}, status=403)
+    task_date = request.POST.get('date') or timezone.now().date()
+    title = request.POST.get('title')
+    description = request.POST.get('description', '')
 
-    submission_text = request.POST.get('submission_text', '').strip()
-    attached_file = request.FILES.get('attached_file')
+    if not title:
+        return JsonResponse({'error': 'Task title is required.'}, status=400)
 
-    if not submission_text and not attached_file:
-        return JsonResponse({'success': False, 'error': 'Please provide text notes or attach a file.'}, status=400)
-
-    try:
-        submission = TaskSubmission(
-            task=task,
-            intern=intern_profile,
-            submission_text=submission_text,
-            attached_file=attached_file,
-            status=TaskSubmission.STATUS_SUBMITTED
-        )
-        submission.full_clean()
-        submission.save()
-    except ValidationError as val_err:
-        return JsonResponse({
-            'success':False,
-            'error':val_err.messages[0] if hasattr(val_err,'messages')else str(val_err)},status=400)
-    except Exception as exc:
-        return JsonResponse({
-            'success': False,
-            'error':f'Submission failed: {str(exc)}'
-        },status=500)
-
-        # Update task status to Completed or In Progress if specified
-        new_status = request.POST.get('status', DailyTask.STATUS_COMPLETED)
-        if new_status in [choice[0] for choice in DailyTask.STATUS_CHOICES]:
-            task.status = new_status
-            task.save()
-
-        # Trigger notification to Supervisor
-        if intern_profile.supervisor and intern_profile.supervisor.user:
-            Notification.objects.create(
-                recipient=intern_profile.supervisor.user,
-                sender=request.user,
-                title=f"Work Submitted: {intern_profile.full_name}",
-                message=f"{intern_profile.full_name} submitted work for '{task.title}'.",
-                link=f"/supervisor/?intern_id={intern_profile.id}",
-                notification_type=Notification.TYPE_SUBMISSION
-            )
-
-        return JsonResponse({
-            'success': True,
-            'message': 'Submission received successfully!',
-            'submission_id': submission.id,
-            'task_id': task.id,
-            'task_status': task.status,
-            'task_status_display': task.get_status_display(),
-            'file_url': submission.attached_file.url if submission.attached_file else None,
-            'file_name': os.path.basename(submission.attached_file.name) if submission.attached_file else None
-        })
-
-    except ValidationError as e:
-        error_msg = e.messages[0] if isinstance(e.messages, list) else str(e)
-        return JsonResponse({'success': False, 'error': error_msg}, status=400)
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': f"Submission failed: {str(e)}"}, status=500)
-
-
-@login_required
-@require_POST
-def review_submission_api(request, submission_id):
-    """
-    API endpoint for Supervisors to review work submissions and provide feedback.
-    Backend RBAC: Supervisor can ONLY review submissions for their assigned interns.
-    Triggers a notification to the intern.
-    """
-    submission = get_object_or_404(TaskSubmission, pk=submission_id)
-    user = request.user
-
-    allowed = False
-    if user.role == User.ROLE_ADMIN or user.is_staff:
-        allowed = True
-    elif user.role == User.ROLE_SUPERVISOR:
-        supervisor_profile = getattr(user, 'supervisor_profile', None)
-        if supervisor_profile and submission.intern.supervisor == supervisor_profile:
-            allowed = True
-
-    if not allowed:
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
-
-    status_val = request.POST.get('status', TaskSubmission.STATUS_REVIEWED)
-    feedback_text = request.POST.get('feedback', '').strip()
-
-    if status_val not in [choice[0] for choice in TaskSubmission.STATUS_CHOICES]:
-        return JsonResponse({'success': False, 'error': 'Invalid status.'}, status=400)
-
-    submission.status = status_val
-    submission.feedback = feedback_text
-    submission.reviewed_at = timezone.now()
-    submission.save()
-
-    # Trigger notification to Intern
-    if submission.intern.user:
-        Notification.objects.create(
-            recipient=submission.intern.user,
-            sender=user,
-            title="Task Feedback Received",
-            message=f"Your supervisor reviewed your submission for '{submission.task.title}'. Status: {submission.get_status_display()}.",
-            link="/intern/",
-            notification_type=Notification.TYPE_SUBMISSION
-        )
+    task = DailyTask.objects.create(
+        intern=intern_profile,
+        topic=topic,
+        date=task_date,
+        title=title,
+        description=description,
+        status='submitted',
+        attached_file=request.FILES.get('attached_file')
+    )
 
     return JsonResponse({
         'success': True,
-        'message': 'Review saved and intern notified.',
-        'submission_id': submission.id,
-        'status_display': submission.get_status_display(),
-        'feedback': submission.feedback
+        'message': 'Task created successfully.',
+        'task': {
+            'id': task.id,
+            'title': task.title,
+            'date': str(task.date),
+            'status': task.get_status_display()
+        }
     })
 
+@login_required
+def edit_daily_task(request, task_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+    intern_profile = getattr(request.user, 'intern_profile', None)
+    task = get_object_or_404(DailyTask, id=task_id)
+
+    if task.intern != intern_profile:
+        return JsonResponse({'error': 'Permission denied: You do not own this task.'}, status=403)
+
+    if task.topic.week.is_locked:
+        return JsonResponse({'error': '🔒 Cannot edit a task in a locked week.'}, status=403)
+
+    title = request.POST.get('title')
+    description = request.POST.get('description')
+    due_date = request.POST.get('due_date')
+
+    if title:
+        task.title = title
+    if description is not None:
+        task.description = description
+    if due_date:
+        task.date = due_date
+
+    task.save()
+    return JsonResponse({'success': True, 'message': 'Task updated successfully.'})
+
+@login_required
+def delete_daily_task(request, task_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+    intern_profile = getattr(request.user, 'intern_profile', None)
+    task = get_object_or_404(DailyTask, id=task_id)
+
+    if task.intern != intern_profile:
+        return JsonResponse({'error': 'Permission denied: You do not own this task.'}, status=403)
+
+    if task.topic.week.is_locked:
+        return JsonResponse({'error': '🔒 Cannot delete task in a locked week.'}, status=403)
+
+    task.delete()
+    return JsonResponse({'success': True, 'message': 'Task deleted successfully.'})
+
+@login_required
+def update_task_status(request, task_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+    task = get_object_or_404(DailyTask, id=task_id)
+    status_choice = request.POST.get('status')
+
+    valid_statuses = dict(DailyTask.STATUS_CHOICES).keys()
+    if status_choice not in valid_statuses:
+        return JsonResponse({'error': 'Invalid task status.'}, status=400)
+
+    task.status = status_choice
+    task.save()
+
+    progress = calculate_intern_progress(task.intern)
+    return JsonResponse({
+        'success': True,
+        'message': 'Task status updated.',
+        'progress_pct': progress['overall']
+    })
+
+# --- Submission & File Handlers ---
+
+@login_required
+def submit_task_api(request, task_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+    intern_profile = getattr(request.user, 'intern_profile', None)
+    if not intern_profile:
+        return JsonResponse({'error': 'Unauthorized: Only interns can submit deliverables.'}, status=403)
+
+    task = get_object_or_404(DailyTask, id=task_id)
+
+    if task.intern != intern_profile:
+        return JsonResponse({'error': 'Permission denied: You do not own this task.'}, status=403)
+
+    if task.topic.week.is_locked:
+        return JsonResponse({
+            'error': '🔒 This week is locked because its deadline has passed. Submissions are disabled.'
+        }, status=403)
+
+    submission_notes = request.POST.get('submission_text', '')
+    if submission_notes:
+        task.description = f"{task.description}\n\nSubmission Notes: {submission_notes}".strip()
+
+    file_obj = request.FILES.get('attached_file')
+    if file_obj:
+        if file_obj.size > 10 * 1024 * 1024:
+            return JsonResponse({'error': 'File is too large. Maximum allowed size is 10 MB.'}, status=400)
+        task.attached_file = file_obj
+
+    task.status = 'submitted'
+    task.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Work submitted successfully!',
+        'task_id': task.id,
+        'status': task.get_status_display()
+    })
+
+@login_required
+def review_submission_api(request, submission_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+    is_coordinator = hasattr(request.user, 'supervisor_profile') or request.user.role in ['admin', 'supervisor']
+    if not is_coordinator:
+        return JsonResponse({'error': 'Unauthorized: Only Coordinators or Admins can review submissions.'}, status=403)
+
+    task = get_object_or_404(DailyTask, id=submission_id)
+    status_choice = request.POST.get('status')
+
+    valid_statuses = dict(DailyTask.STATUS_CHOICES).keys()
+    if status_choice not in valid_statuses:
+        return JsonResponse({'error': f'Invalid status choice.'}, status=400)
+
+    task.status = status_choice
+    task.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Task status updated to {task.get_status_display()}.',
+        'task_id': task.id,
+        'status': task.status
+    })
 
 @login_required
 def download_submission_file(request, submission_id):
     """
-    Secure file download view. Serves task files ONLY to authorized users:
-    - The intern who submitted the file
-    - The supervisor assigned to that intern
-    - Admin / Staff users
+    Handles file downloads for task deliverables with authorization security.
     """
-    submission = get_object_or_404(TaskSubmission, pk=submission_id)
-    if not submission.attached_file:
-        raise Http404("No file attached to this submission.")
+    task = get_object_or_404(DailyTask, id=submission_id)
 
-    user = request.user
-    allowed = False
+    # Ownership / Privilege Check
+    is_owner = hasattr(request.user, 'intern_profile') and task.intern == request.user.intern_profile
+    is_coordinator_or_admin = hasattr(request.user, 'supervisor_profile') or request.user.role in ['admin', 'supervisor']
 
-    if user.is_staff or user.role == User.ROLE_ADMIN:
-        allowed = True
-    elif user.role == User.ROLE_INTERN:
-        if submission.intern.user == user:
-            allowed = True
-    elif user.role == User.ROLE_SUPERVISOR:
-        supervisor_profile = getattr(user, 'supervisor_profile', None)
-        if supervisor_profile and submission.intern.supervisor == supervisor_profile:
-            allowed = True
+    if not (is_owner or is_coordinator_or_admin):
+        return JsonResponse({'error': 'Unauthorized file access.'}, status=403)
 
-    if not allowed:
-        return JsonResponse({'error': 'Permission denied.'}, status=403)
-
-    file_path = submission.attached_file.path
-    if not os.path.exists(file_path):
-        raise Http404("Requested file does not exist on disk.")
-
-    response = FileResponse(open(file_path, 'rb'), as_attachment=True)
-    response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
-    return response
+    if task.attached_file:
+        try:
+            return FileResponse(task.attached_file.open('rb'), as_attachment=True, filename=task.attached_file.name)
+        except Exception as e:
+            logger.error(f"Error reading file for task {submission_id}: {e}")
+            raise Http404("File could not be retrieved from local storage.")
+    elif task.attached_file_url:
+        return redirect(task.attached_file_url)
+    else:
+        raise Http404("No attached file exists for this task submission.")

@@ -1,489 +1,324 @@
 {% extends "base.html" %}
 {% block title %}Intern Dashboard | IFL Interns{% endblock %}
 
-
 {% block content %}
-<!-- Welcome & Intern Header -->
-<div
-    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
+<!-- Welcome Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; flex-wrap: wrap; gap: 16px;">
     <div>
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-            <h1 style="font-size: 1.8rem; font-weight: 800; color: #fff;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+            <h1 style="font-size: 2rem; font-weight: 800; color: var(--text-main);">
                 Welcome back, {{ profile.full_name }} 👋
             </h1>
-            <span
-                style="background: rgba(99,102,241,0.2); color: #818cf8; font-family: monospace; font-size: 0.85rem; font-weight: 700; padding: 2px 10px; border-radius: 12px; border: 1px solid rgba(99,102,241,0.3);">
+            <span style="background: rgba(99,102,241,0.2); color: #818cf8; font-family: monospace; font-size: 0.9rem; font-weight: 700; padding: 4px 12px; border-radius: 12px; border: 1px solid rgba(99,102,241,0.3);">
                 {{ profile.intern_id }}
             </span>
         </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">
+        <p style="color: var(--text-muted); font-size: 0.95rem;">
             {{ profile.degree }} · {{ profile.university }}
-            {% if profile.supervisor and profile.supervisor.user %}
-            · Supervisor: <strong style="color: #fff;">{{ profile.supervisor.user.get_full_name }}</strong>
+            {% if profile.coordinator and profile.coordinator.user %}
+            · Coordinator: <strong style="color: var(--text-main);">{{ profile.coordinator.user.get_full_name }}</strong>
             {% endif %}
         </p>
     </div>
 
     {% if profile.supervisor and profile.supervisor.user %}
     <div>
-        <button
-            onclick="openChatDrawer({{ profile.supervisor.user.id }}, '{{ profile.supervisor.user.get_full_name|escapejs }}')"
-            class="btn" style="background: linear-gradient(135deg, var(--primary), #818cf8);">
+        <button type="button" onclick="openChatDrawer({{ profile.supervisor.user.id }}, '{{ profile.supervisor.user.get_full_name|escapejs }}')"
+            class="btn" style="background: linear-gradient(135deg, var(--primary), #818cf8); padding: 10px 20px; font-size: 0.95rem;">
             <i class="fa-solid fa-comments"></i> Message Supervisor
         </button>
     </div>
     {% endif %}
 </div>
 
-<!-- Stats Cards -->
-<div class="stats-grid">
+<!-- Stats Overview -->
+<div class="stats-grid" style="margin-bottom: 28px;">
     <div class="stat-card">
         <div class="stat-icon"><i class="fa-solid fa-chart-line"></i></div>
         <div>
-            <div class="stat-value" id="stat_progress">{{ progress_pct }}%</div>
-            <div class="stat-label">Overall Completion</div>
+            <div class="stat-value" id="stat_progress" style="font-size: 1.6rem; font-weight: 800;">{{ progress_data.overall|default:progress_pct|default:0 }}%</div>
+            <div class="stat-label" style="font-size: 0.85rem;">Overall Completion</div>
         </div>
     </div>
     <div class="stat-card emerald">
         <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
         <div>
-            <div class="stat-value" id="stat_completed">{{ completed_tasks }}</div>
-            <div class="stat-label">Tasks Completed</div>
+            <div class="stat-value" id="stat_completed" style="font-size: 1.6rem; font-weight: 800;">{{ completed_tasks|default:0 }}</div>
+            <div class="stat-label" style="font-size: 0.85rem;">Tasks Completed</div>
         </div>
     </div>
     <div class="stat-card sky">
         <div class="stat-icon"><i class="fa-solid fa-spinner"></i></div>
         <div>
-            <div class="stat-value" id="stat_in_progress">{{ in_progress_tasks }}</div>
-            <div class="stat-label">In Progress</div>
+            <div class="stat-value" id="stat_in_progress" style="font-size: 1.6rem; font-weight: 800;">{{ in_progress_tasks|default:0 }}</div>
+            <div class="stat-label" style="font-size: 0.85rem;">In Progress</div>
         </div>
     </div>
     <div class="stat-card amber">
         <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
         <div>
-            <div class="stat-value" id="stat_pending">{{ pending_tasks }}</div>
-            <div class="stat-label">Pending Review</div>
+            <div class="stat-value" id="stat_pending" style="font-size: 1.6rem; font-weight: 800;">{{ pending_tasks|default:0 }}</div>
+            <div class="stat-label" style="font-size: 0.85rem;">Pending Review</div>
         </div>
     </div>
 </div>
 
-<!-- Overall Progress Bar -->
-<div class="card" style="padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <span style="font-weight: 700; font-size: 0.9rem; color: #fff;">Rotational Curriculum Progress</span>
-        <span style="font-weight: 800; color: var(--primary);" id="progress_pct_text">{{ progress_pct }}%</span>
+<!-- Progress Bar -->
+<div class="card" style="padding: 22px; margin-bottom: 28px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Rotational Curriculum Progress</span>
+        <span style="font-weight: 800; color: var(--primary); font-size: 1.1rem;" id="progress_pct_text">{{ progress_data.overall|default:progress_pct|default:0 }}%</span>
     </div>
-    <div class="progress-bar-container">
-        <div class="progress-bar-fill" id="progress_fill" style="width: {{ progress_pct }}%;"></div>
+    <div class="progress-bar-container" style="height: 10px; border-radius: 6px;">
+        <div class="progress-bar-fill" id="progress_fill" style="width: {{ progress_data.overall|default:progress_pct|default:0 }}%;"></div>
     </div>
 </div>
 
-<!-- Rotation Schedule & Daily Tasks -->
-<div class="card">
-    <div class="card-header">
-        <div class="card-title">
-            <i class="fa-solid fa-calendar-week"></i>
-            Weekly Schedule
+<!-- Weekly Schedule -->
+<div class="card" style="padding: 24px;">
+    <div class="card-header" style="margin-bottom: 24px;">
+        <div class="card-title" style="font-weight: 800; font-size: 1.25rem; color: var(--text-main);">
+            <i class="fa-solid fa-calendar-week" style="color: var(--primary); margin-right: 8px;"></i>
+            Weekly Schedule & Tasks
         </div>
     </div>
 
-    {% for week in all_weeks %}
-    <div
-        style="margin-bottom: 24px; background: rgba(17,24,39,0.5); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
-        <div style="
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 15px;
-    flex-wrap: wrap;
-">
-
-    <!-- Week Information -->
-    <div>
-        <div style="
-            font-weight: 800;
-            font-size: 1.05rem;
-            color: #fff;
-            margin-bottom: 4px;
-        ">
-            <i class="fa-solid fa-bookmark"
-               style="color: var(--primary);"></i>
-
-            Week {{ week.week_number }}:
-            {{ week.department.name }}
-        </div>
-
-        <div style="
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        ">
-            <i class="fa-regular fa-calendar"
-               style="margin-right: 4px;"></i>
-
-            {{ week.start_date }} to {{ week.end_date }}
-        </div>
-    </div>
-
-
-    <!-- Add Day -->
-    <button
-        type="button"
-        onclick="addDayToWeek({{ week.id }}, {{ week.week_number }})"
-        class="btn btn-outline"
-        id="add_day_btn_{{ week.id }}"
-        style="
-            height: 38px;
-            padding: 7px 15px;
-            border-color: rgba(99,102,241,0.4);
-            background: rgba(99,102,241,0.10);
-            color: #a5b4fc;
-            white-space: nowrap;
-        "
-    >
-        <i class="fa-solid fa-plus"></i>
-        Add Day
-    </button>
-
-</div>
-
-        <!-- Course Outline File -->
-        <!-- Course Outline Section (Title, Text & File) -->
-        {% if week.course_outline_title or week.course_outline_text or week.course_outline_file %}
-        <div style="
-            margin-bottom: 20px;
-            padding: 14px 16px;
-            background: rgba(99, 102, 241, 0.06);
-            border: 1px solid rgba(99, 102, 241, 0.22);
-            border-radius: 10px;
-        ">
-            <div style="
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 12px;
-                flex-wrap: wrap;
-            ">
-                <div style="
-                    font-weight: 750;
-                    color: #fff;
-                    font-size: 0.92rem;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                ">
-                    <i class="fa-solid fa-book-open" style="color: var(--primary);"></i>
-                    {{ week.course_outline_title|default:"Course Outline & Weekly Syllabus" }}
+    <div id="weeksAccordion" style="display: flex; flex-direction: column; gap: 18px;">
+        {% for week in all_weeks|default:weeks %}
+        <div class="week-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-card);">
+            
+            <!-- Collapsible Week Header -->
+            <div onclick="toggleWeekCollapse('week_body_{{ week.id }}', 'chevron_{{ week.id }}')" 
+                 style="padding: 18px 20px; background: var(--bg-subtle); cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 15px; user-select: none;">
+                
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fa-solid fa-chevron-down" id="chevron_{{ week.id }}" style="color: var(--text-muted); font-size: 0.95rem; transition: transform 0.2s ease;"></i>
+                    <div>
+                        <div style="font-weight: 800; font-size: 1.15rem; color: var(--text-main);">
+                            <i class="fa-solid fa-bookmark" style="color: var(--primary); margin-right: 6px;"></i>
+                            Week {{ week.week_number }}: {{ week.department.name|default:week.course_outline_title|default:"General Module" }}
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+                            <span><i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>{{ week.start_date }} to {{ week.end_date }}</span>
+                            {% if week.department %}
+                            <span style="color: var(--text-dim);">&bull;</span>
+                            <span><i class="fa-solid fa-building" style="margin-right: 4px;"></i>{{ week.department.name }}</span>
+                            {% endif %}
+                            {% if week.coordinator and week.coordinator.user %}
+                            <span style="color: var(--text-dim);">&bull;</span>
+                            <span><i class="fa-solid fa-user-tie" style="margin-right: 4px;"></i>{{ week.coordinator.user.get_full_name|default:week.coordinator.user.username }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
 
-                {% if week.course_outline_file %}
-                <a
-                    href="{{ week.course_outline_file.url }}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="btn btn-outline"
-                    style="
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        height: 34px;
-                        padding: 5px 12px;
-                        font-size: 0.78rem;
-                        border-color: rgba(99, 102, 241, 0.38);
-                        background: rgba(99, 102, 241, 0.12);
-                        color: #c7d2fe;
-                        text-decoration: none;
-                        white-space: nowrap;
-                    "
-                >
-                    <i class="fa-solid fa-file-pdf" style="color: var(--accent-rose);"></i>
-                    View Attached File
-                </a>
+                <div style="display: flex; align-items: center; gap: 12px;" onclick="event.stopPropagation();">
+                    {% if week.is_locked %}
+                        <span class="badge" style="background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); padding: 6px 14px; font-size: 0.85rem; border-radius: 8px;">🔒 Locked</span>
+                    {% elif week.is_current %}
+                        <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 14px; font-size: 0.85rem; border-radius: 8px;">Current Week</span>
+                    {% else %}
+                        <span class="badge" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted); padding: 6px 14px; font-size: 0.85rem; border-radius: 8px;">Not Started</span>
+                    {% endif %}
+
+                    {% if week.coordinator and week.coordinator.user %}
+                    <button type="button" onclick="openChatDrawer({{ week.coordinator.user.id }}, '{{ week.coordinator.user.get_full_name|default:week.coordinator.user.username|escapejs }}')"
+                        class="btn btn-outline" title="Message this week's coordinator"
+                        style="height: 38px; padding: 6px 14px; font-size: 0.85rem; font-weight: 700;">
+                        <i class="fa-solid fa-comments"></i> Message Coordinator
+                    </button>
+                    {% endif %}
+
+                    {% if not week.is_locked %}
+                    <button type="button" onclick="addDayToWeek({{ week.id }})" class="btn btn-outline" id="add_day_btn_{{ week.id }}"
+                        style="height: 38px; padding: 6px 16px; font-size: 0.88rem; font-weight: 700;">
+                        <i class="fa-solid fa-plus"></i> Add Day
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Week-Wise Progress Badge -->
+            <div style="padding: 12px 20px; border-top: 1px solid var(--border-color); background: rgba(99, 102, 241, 0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">
+                        Week {{ week.week_number }} Progress
+                    </span>
+                    <span style="font-size: 0.82rem; font-weight: 800; color: var(--primary);" id="week_progress_text_{{ week.id }}">
+                        {{ week.progress.pct }}% ({{ week.progress.completed }}/{{ week.progress.total }} Tasks Completed)
+                    </span>
+                </div>
+                <div class="progress-bar-container" style="height: 6px; margin: 0;">
+                    <div class="progress-bar-fill" id="week_progress_fill_{{ week.id }}" style="width: {{ week.progress.pct }}%;"></div>
+                </div>
+            </div>
+
+            <!-- Collapsible Week Body -->
+            <div id="week_body_{{ week.id }}" style="padding: 20px; display: {% if forloop.first or week.is_current %}block{% else %}none{% endif %}; border-top: 1px solid var(--border-color);">
+                
+                <!-- Course Syllabus -->
+                {% if week.course_outline_title or week.course_outline_text or week.course_outline_file %}
+                <div style="margin-bottom: 20px; padding: 14px 16px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-book-open" style="color: var(--primary);"></i>
+                            {{ week.course_outline_title|default:"Course Outline & Syllabus" }}
+                        </div>
+                        {% if week.course_outline_file %}
+                        <a href="{{ week.course_outline_file.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline"
+                            style="height: 34px; padding: 4px 12px; font-size: 0.82rem; text-decoration: none;">
+                            <i class="fa-solid fa-file-pdf" style="color: var(--accent-rose);"></i> View Syllabus
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% if week.course_outline_text %}
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; white-space: pre-line;">
+                        {{ week.course_outline_text }}
+                    </div>
+                    {% endif %}
+                </div>
                 {% endif %}
-            </div>
 
-            {% if week.course_outline_text %}
-            <div style="
-                margin-top: 10px;
-                padding-top: 10px;
-                border-top: 1px solid rgba(255, 255, 255, 0.08);
-                color: var(--text-muted);
-                font-size: 0.84rem;
-                line-height: 1.55;
-                white-space: pre-line;
-            ">
-                {{ week.course_outline_text }}
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
-
-       {% for topic in week.topics.all %}
-            <div style="margin-bottom: 16px;">
-
+                <!-- Tasks Table -->
+                {% for topic in week.topics.all %}
                 <div class="table-responsive">
-                <table class="custom-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 80px;">Day</th>
-                            <th>Task Title & Description</th>
-                            <th>Due Date</th>
-                            <th style="width: 150px;">Status</th>
-                            <th style="width: 170px;">Action / Submission</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for task in topic.tasks.all %}
-                        <tr>
-                            <td style="font-weight: 800; color: var(--text-muted);">Day {{ task.day_number }}</td>
-                            <td>
-                                <div style="font-weight: 700; color: #fff; margin-bottom: 2px;">{{ task.title }}</div>
-                                <div style="font-size: 0.82rem; color: var(--text-muted);">{{ task.description }}</div>
-                            </td>
-                            <td style="font-size: 0.85rem; color: var(--text-dim);">{{ task.due_date|default:"Ongoing" }}</td>
-                            <td>
-                                <select class="status-select" onchange="updateTaskStatus({{ task.id }}, this.value)"
-                                    id="select_task_{{ task.id }}">
-                                    <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pending
-                                    </option>
-                                    <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>
-                                        In Progress</option>
-                                    <option value="completed" {% if task.status == 'completed' %}selected{% endif %}>
-                                        Completed</option>
-                                </select>
-                            </td>
-                            <td>
-    <div style="
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 220px;
-    ">
-
-        <button type="button"
-            onclick="openEditTaskModal(
-                {{ task.id }},
-                '{{ task.title|escapejs }}',
-                '{{ task.description|escapejs }}',
-                '{{ task.due_date|date:"Y-m-d" }}'
-            )"
-            style="
-                width: 38px;
-                height: 38px;
-                flex-shrink: 0;
-                border-radius: 10px;
-                border: 1px solid rgba(99,102,241,0.35);
-                background: rgba(99,102,241,0.12);
-                color: #818cf8;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                transition: 0.2s ease;
-            "
-            onmouseover="
-                this.style.background='rgba(99,102,241,0.22)';
-                this.style.borderColor='#818cf8';
-                this.style.transform='translateY(-1px)';
-            "
-            onmouseout="
-                this.style.background='rgba(99,102,241,0.12)';
-                this.style.borderColor='rgba(99,102,241,0.35)';
-                this.style.transform='translateY(0)';
-            "
-            title="Edit task">
-
-            <i class="fa-solid fa-pen-to-square"
-               style="font-size: 0.9rem;"></i>
-        </button>
-
-
-        <button type="button"
-            onclick="openSubmitModal(
-                {{ task.id }},
-                '{{ task.title|escapejs }}'
-            )"
-            class="btn btn-outline"
-            style="
-                flex: 1;
-                height: 38px;
-                padding: 6px 14px;
-                font-size: 0.8rem;
-                white-space: nowrap;
-            ">
-
-            <i class="fa-solid fa-paperclip"></i>
-            Submit Work
-        </button>
-
-    </div>
-</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: var(--text-muted);">No daily tasks
-                                assigned under this topic.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                    <table class="custom-table" style="width: 100%; border-collapse: separate; border-spacing: 0 6px;">
+                        <thead>
+                            <tr style="color: var(--text-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                <th style="width: 140px; padding: 10px 14px;">Date</th>
+                                <th style="padding: 10px 14px;">Task Details</th>
+                                <th style="width: 160px; padding: 10px 14px;">Status</th>
+                                <th style="width: 150px; padding: 10px 14px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in topic.tasks.all %}
+                            <tr style="background: var(--bg-subtle); border-radius: 8px;">
+                                <td style="padding: 12px 14px; font-weight: 700; color: var(--text-muted); font-size: 0.9rem;">
+                                    {{ task.date|default:"Ongoing" }}
+                                </td>
+                                <td style="padding: 12px 14px;">
+                                    <div style="font-weight: 700; color: var(--text-main); font-size: 0.98rem; margin-bottom: 3px;">{{ task.title }}</div>
+                                    <div style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.4;">{{ task.description }}</div>
+                                </td>
+                                <td style="padding: 12px 14px;">
+                                    <select class="status-select" onchange="updateTaskStatus({{ task.id }}, this.value, {{ week.id }})" id="select_task_{{ task.id }}" 
+                                            style="padding: 6px 10px; font-size: 0.85rem; border-radius: 6px; width: 100%;" {% if week.is_locked %}disabled{% endif %}>
+                                        <option value="pending" {% if task.status == 'pending' or task.status == 'not_started' %}selected{% endif %}>Pending</option>
+                                        <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                        <option value="completed" {% if task.status == 'completed' or task.status == 'submitted' %}selected{% endif %}>Completed</option>
+                                    </select>
+                                </td>
+                                <td style="padding: 12px 14px;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        {% if not week.is_locked %}
+                                        <button type="button" onclick="openEditTaskModal({{ task.id }}, {{ task.topic.week.id }}, '{{ task.title|escapejs }}', '{{ task.description|escapejs }}', '{{ task.date|date:"Y-m-d" }}')"
+                                            style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid rgba(99,102,241,0.35); background: rgba(99,102,241,0.12); color: #818cf8; cursor: pointer;" title="Edit or Add Tasks to this Day">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </button>
+                                        <button type="button" onclick="openSubmitModal({{ task.id }}, '{{ task.title|escapejs }}')" class="btn btn-outline"
+                                            style="height: 36px; padding: 4px 12px; font-size: 0.82rem; white-space: nowrap;">
+                                            <i class="fa-solid fa-paperclip"></i> Submit
+                                        </button>
+                                        {% else %}
+                                        <span style="font-size: 0.82rem; color: var(--text-muted);">🔒 Read-only</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                                    No tasks recorded for this week yet. Click <strong>+ Add Day</strong> to begin tracking.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endfor %}
             </div>
+        </div>
+        {% empty %}
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+            No rotation weeks assigned yet. Your coordinator will configure your curriculum schedule shortly.
         </div>
         {% endfor %}
     </div>
-    {% empty %}
-    <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-        No rotation weeks assigned yet. Your supervisor will configure your curriculum schedule shortly.
-    </div>
-    {% endfor %}
 </div>
 
-<!-- Modal: Edit Daily Task -->
+<!-- Modal: Edit Task & Schedule -->
 <div id="editTaskModal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 540px;">
-
-        <div class="modal-header">
-            <h3 style="
-                color: #fff;
-                font-size: 1.1rem;
-                font-weight: 700;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            ">
-                <i class="fa-solid fa-pen-to-square"
-                   style="color: var(--primary);"></i>
-                Edit Daily Task
+    <div class="modal-card" style="max-width: 540px; padding: 24px;">
+        <div class="modal-header" style="margin-bottom: 18px;">
+            <h3 style="color: var(--text-main); font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> Edit Task & Schedule
             </h3>
-
-            <button type="button"
-                onclick="closeModal('editTaskModal')"
-                class="close-modal">
-                &times;
-            </button>
+            <button type="button" onclick="closeModal('editTaskModal')" class="close-modal">&times;</button>
         </div>
-
         <div class="modal-body">
-
-            <form id="editTaskForm"
-                style="
-                    display: flex;
-                    flex-direction: column;
-                    gap: 14px;
-                ">
-
+            <form id="editTaskForm" style="display: flex; flex-direction: column; gap: 16px;">
                 {% csrf_token %}
-
-                <input type="hidden" id="edit_task_id">
-
-                <div>
-                    <label style="
-                        font-size: 0.8rem;
-                        font-weight: 700;
-                        color: var(--text-muted);
-                    ">
-                        TASK TITLE *
-                    </label>
-
-                    <input
-                        type="text"
-                        id="edit_task_title"
-                        name="title"
-                        required
-                        class="form-control">
-                </div>
+                <input type="hidden" id="edit_task_id" name="task_id">
+                <input type="hidden" id="edit_week_id" name="week_id">
 
                 <div>
-                    <label style="
-                        font-size: 0.8rem;
-                        font-weight: 700;
-                        color: var(--text-muted);
-                    ">
-                        DESCRIPTION
-                    </label>
-
-                    <textarea
-                        id="edit_task_description"
-                        name="description"
-                        rows="4"
-                        class="form-control"></textarea>
+                    <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">TASK TITLE *</label>
+                    <input type="text" id="edit_task_title" name="title" required class="form-control" style="padding: 10px 14px; font-size: 0.95rem;">
                 </div>
-
                 <div>
-                    <label style="
-                        font-size: 0.8rem;
-                        font-weight: 700;
-                        color: var(--text-muted);
-                    ">
-                        DUE DATE
-                    </label>
-
-                    <input
-                        type="date"
-                        id="edit_task_due_date"
-                        name="due_date"
-                        class="form-control">
+                    <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">DESCRIPTION</label>
+                    <textarea id="edit_task_description" name="description" rows="3" class="form-control" style="padding: 10px 14px; font-size: 0.95rem;"></textarea>
+                </div>
+                <div>
+                    <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">TASK DATE</label>
+                    <input type="date" id="edit_task_due_date" name="date" class="form-control" style="padding: 10px 14px; font-size: 0.95rem;">
                 </div>
 
-                <div style="
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 10px;
-                    margin-top: 8px;
-                ">
-                    <button type="button"
-                        onclick="closeModal('editTaskModal')"
-                        class="btn btn-outline">
-                        Cancel
-                    </button>
-
-                    <button type="submit"
-                        class="btn">
-                        <i class="fa-solid fa-floppy-disk"></i>
-                        Save Changes
+                <div style="margin-top: 8px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Need another task for this day?</span>
+                    <button type="button" onclick="addAnotherTaskToThisDay()" class="btn btn-outline" style="font-size: 0.82rem; padding: 6px 12px;">
+                        <i class="fa-solid fa-plus"></i> Add Additional Task
                     </button>
                 </div>
 
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
+                    <button type="button" onclick="closeModal('editTaskModal')" class="btn btn-outline" style="padding: 8px 18px;">Cancel</button>
+                    <button type="submit" class="btn" style="padding: 8px 20px;"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                </div>
             </form>
-
         </div>
     </div>
 </div>
 
 <!-- Modal: Task Work Submission -->
 <div id="submitModal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 540px;">
-        <div class="modal-header">
-            <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+    <div class="modal-card" style="max-width: 540px; padding: 24px;">
+        <div class="modal-header" style="margin-bottom: 18px;">
+            <h3 style="color: var(--text-main); font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-upload" style="color: var(--primary);"></i> Submit Task Deliverable
             </h3>
-            <button onclick="closeModal('submitModal')" class="close-modal">&times;</button>
+            <button type="button" onclick="closeModal('submitModal')" class="close-modal">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="submissionForm" enctype="multipart/form-data"
-                style="display: flex; flex-direction: column; gap: 14px;">
+            <form id="submissionForm" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
                 {% csrf_token %}
                 <input type="hidden" id="submit_task_id" name="task_id">
                 <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">TASK TITLE</label>
-                    <div id="submit_task_title" style="font-weight: 700; color: #fff; margin-top: 4px;"></div>
+                    <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">TASK TITLE</label>
+                    <div id="submit_task_title" style="font-weight: 700; color: var(--text-main); font-size: 1rem; margin-top: 4px;"></div>
                 </div>
                 <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">SUBMISSION NOTES /
-                        REPORT SUMMARY</label>
-                    <textarea name="submission_text" rows="4"
-                        placeholder="Describe your findings, completed items, or execution results..."
-                        class="form-control" style="margin-top: 6px;"></textarea>
+                    <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">SUBMISSION NOTES / REPORT SUMMARY</label>
+                    <textarea name="submission_text" rows="4" placeholder="Describe findings or completed work..." class="form-control" style="padding: 10px 14px; font-size: 0.95rem;"></textarea>
                 </div>
                 <div>
-                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">ATTACH FILE (PDF,
-                        DOCX, ZIP, TXT, PNG, JPG - MAX 10MB)</label>
-                    <input type="file" name="attached_file" class="form-control" style="margin-top: 6px;">
+                    <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">ATTACH FILE (PDF, DOCX, ZIP, MAX 10MB)</label>
+                    <input type="file" name="attached_file" class="form-control" style="padding: 8px 12px;">
                 </div>
-                <div style="display: flex; gap: 10px; margin-top: 8px;">
-                    <button type="submit" class="btn" style="flex: 1; height: 44px;">
-                        <i class="fa-solid fa-paper-plane"></i> Submit to Supervisor
+                <div style="display: flex; gap: 12px; margin-top: 10px;">
+                    <button type="submit" class="btn" style="flex: 1; height: 44px; font-size: 0.95rem;">
+                        <i class="fa-solid fa-paper-plane"></i> Submit to Coordinator
                     </button>
                 </div>
             </form>
@@ -491,31 +326,42 @@
     </div>
 </div>
 
-<!-- Floating Messaging Drawer / Modal -->
+<!-- Chat Modal -->
 <div id="chatModal" class="modal-overlay">
     <div class="modal-card" style="max-width: 600px; height: 75vh;">
-        <div class="modal-header">
-            <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-comments" style="color: var(--primary);"></i> Direct Chat with Supervisor
+        <div class="modal-header" style="padding: 18px 20px;">
+            <h3 style="color: var(--text-main); font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-comments" style="color: var(--primary);"></i> Direct Chat with Coordinator
             </h3>
-            <button onclick="closeModal('chatModal')" class="close-modal">&times;</button>
+            <button type="button" onclick="closeModal('chatModal')" class="close-modal">&times;</button>
         </div>
         <div class="modal-body" style="display: flex; flex-direction: column; height: 100%; padding: 0;">
-            <div id="chatMessages"
-                style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: rgba(11,15,25,0.4);">
-                <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading chat
-                    conversation...</div>
+            <div id="chatMessages" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg-subtle);">
+                <div style="text-align: center; color: var(--text-muted); font-size: 0.88rem;">Loading conversation...</div>
             </div>
-            <form id="chatForm"
-                style="padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--bg-surface);">
+            <form id="chatForm" style="padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; background: var(--bg-surface);">
                 {% csrf_token %}
                 <input type="hidden" id="chat_recipient_id" name="recipient_id">
-                <input type="text" id="chat_input" name="content" placeholder="Type a message to your supervisor..."
-                    required class="form-control" style="flex: 1;">
-                <button type="submit" class="btn" style="padding: 0 20px;">
+                <input type="text" id="chat_input" name="content" placeholder="Type a message..." required class="form-control" style="flex: 1; padding: 10px 14px; font-size: 0.95rem;">
+                <button type="submit" class="btn" style="padding: 0 22px; font-size: 0.95rem;">
                     <i class="fa-solid fa-paper-plane"></i> Send
                 </button>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Delete Message Confirmation -->
+<div id="deleteConfirmModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 400px; padding: 24px; text-align: center;">
+        <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(244, 63, 94, 0.12); color: var(--accent-rose, #f43f5e); display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem; margin-bottom: 14px;">
+            <i class="fa-solid fa-trash-can"></i>
+        </div>
+        <h3 style="color: var(--text-main, #fff); font-size: 1.15rem; font-weight: 700; margin-bottom: 8px;">Delete Message?</h3>
+        <p style="color: var(--text-muted, #94a3b8); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.5;">Are you sure you want to delete this message? This action cannot be undone.</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" onclick="closeModal('deleteConfirmModal')" class="btn btn-outline" style="padding: 8px 18px; font-size: 0.85rem;">Cancel</button>
+            <button type="button" id="confirmDeleteMsgBtn" class="btn" style="background: var(--accent-rose, #f43f5e); padding: 8px 20px; font-size: 0.85rem; color: #fff;">Delete</button>
         </div>
     </div>
 </div>
@@ -523,262 +369,358 @@
 
 {% block scripts %}
 <script>
-    function openEditTaskModal(taskId, title, description, dueDate) {
-    document.getElementById('edit_task_id').value = taskId;
-    document.getElementById('edit_task_title').value = title || '';
-    document.getElementById('edit_task_description').value = description || '';
-    document.getElementById('edit_task_due_date').value = dueDate || '';
+    const ENDPOINTS = {
+        addDay: (weekId) => `/intern/week/${weekId}/add-day/`,
+        editTask: (taskId) => `/intern/task/${taskId}/edit/`,
+        updateTaskStatus: (taskId) => "{% url 'dashboard:update_task_status' 999999 %}".replace('999999', taskId),
+        submitTask: (taskId) => "{% url 'academics:submit_task_api' 999999 %}".replace('999999', taskId),
+        sendMessage: "{% url 'dashboard:send_message_api' %}",
+        getMessages: "{% url 'dashboard:get_messages_api' %}",
+    };
 
-    document.getElementById('editTaskModal')
-        .classList.add('active');
-}
-document.getElementById('editTaskForm')
-    .addEventListener('submit', function (e) {
+    let currentChatTargetId = null;
+    let pendingDeleteMessageId = null;
 
-        e.preventDefault();
+    function getCsrfToken() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+    }
 
-        const taskId =
-            document.getElementById('edit_task_id').value;
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) modal.classList.remove('active');
+    }
 
-        const formData = new FormData(this);
+    function toggleWeekCollapse(bodyId, chevronId) {
+        const body = document.getElementById(bodyId);
+        const chevron = document.getElementById(chevronId);
+        if (!body) return;
 
-        fetch(`/intern/task/${taskId}/edit/`, {
+        if (body.style.display === 'none' || body.style.display === '') {
+            body.style.display = 'block';
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+        } else {
+            body.style.display = 'none';
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    function addDayToWeek(weekId) {
+        const button = document.getElementById(`add_day_btn_${weekId}`);
+        if (!button) return;
+        button.disabled = true;
+        const originalHTML = button.innerHTML;
+        button.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Adding...`;
+
+        fetch(ENDPOINTS.addDay(weekId), {
             method: 'POST',
-            headers: {
-                'X-CSRFToken': csrftoken
-            },
-            body: formData
+            headers: { 'X-CSRFToken': getCsrfToken() }
         })
         .then(async response => {
-
-            let data;
-
-            try {
-                data = await response.json();
-            } catch (error) {
-                throw new Error(
-                    `Server returned ${response.status}.`
-                );
-            }
-
-            if (!response.ok || !data.success) {
-                throw new Error(
-                    data.error || 'Failed to update task.'
-                );
-            }
-
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Unable to add day.');
             return data;
         })
         .then(data => {
-
-            if (typeof showToast === 'function') {
-                showToast(
-                    data.message || 'Task updated successfully.',
-                    'success'
-                );
-            }
-
-            closeModal('editTaskModal');
-
-            setTimeout(() => {
-                window.location.reload();
-            }, 700);
+            if (typeof showToast === 'function') showToast(data.message || 'New day added successfully.', 'success');
+            setTimeout(() => window.location.reload(), 500);
         })
         .catch(error => {
+            button.disabled = false;
+            button.innerHTML = originalHTML;
+            if (typeof showToast === 'function') showToast(error.message || 'Failed to add day.', 'error');
+        });
+    }
 
-            console.error('Edit task error:', error);
+    function openEditTaskModal(taskId, weekId, title, description, date) {
+        document.getElementById('edit_task_id').value = taskId;
+        document.getElementById('edit_week_id').value = weekId;
+        document.getElementById('edit_task_title').value = title || '';
+        document.getElementById('edit_task_description').value = description || '';
+        document.getElementById('edit_task_due_date').value = date || '';
+        document.getElementById('editTaskModal').classList.add('active');
+    }
 
-            if (typeof showToast === 'function') {
-                showToast(
-                    error.message || 'Unable to update task.',
-                    'error'
-                );
+    function addAnotherTaskToThisDay() {
+        const weekId = document.getElementById('edit_week_id').value;
+        const selectedDate = document.getElementById('edit_task_due_date').value;
+
+        if (!weekId) {
+            if (typeof showToast === 'function') showToast('Missing week selection.', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        if (selectedDate) formData.append('date', selectedDate);
+        formData.append('title', 'Additional Task');
+
+        fetch(ENDPOINTS.addDay(weekId), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken() },
+            body: formData
+        })
+        .then(async res => {
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await res.json();
             }
+            throw new Error(`Server error (${res.status}). Route or view failed.`);
+        })
+        .then(data => {
+            if (data.success) {
+                if (typeof showToast === 'function') showToast('New task added to this day!', 'success');
+                closeModal('editTaskModal');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                throw new Error(data.error || 'Failed to add additional task.');
+            }
+        })
+        .catch(err => {
+            if (typeof showToast === 'function') showToast(err.message, 'error');
+        });
+    }
+
+    document.getElementById('editTaskForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const taskId = document.getElementById('edit_task_id').value;
+        const formData = new FormData(this);
+
+        fetch(ENDPOINTS.editTask(taskId), {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken() },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (typeof showToast === 'function') showToast('Task updated successfully.', 'success');
+                closeModal('editTaskModal');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                throw new Error(data.error || 'Failed to update task.');
+            }
+        })
+        .catch(err => {
+            if (typeof showToast === 'function') showToast(err.message, 'error');
         });
     });
-function addDayToWeek(weekId, weekNumber) {
 
-    const button = document.getElementById(
-        `add_day_btn_${weekId}`
-    );
-
-    if (!button) return;
-
-    // Prevent double clicking
-    button.disabled = true;
-
-    const originalHTML = button.innerHTML;
-
-    button.innerHTML = `
-        <i class="fa-solid fa-spinner fa-spin"></i>
-        Adding...
-    `;
-
-    fetch(`/intern/week/${weekId}/add-day/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrftoken
-        }
-    })
-
-    .then(async response => {
-
-        let data;
-
-        try {
-            data = await response.json();
-        } catch (error) {
-            throw new Error(
-                `Server returned ${response.status}.`
-            );
-        }
-
-        if (!response.ok || !data.success) {
-            throw new Error(
-                data.error || 'Unable to add day.'
-            );
-        }
-
-        return data;
-    })
-
-    .then(data => {
-
-        if (typeof showToast === 'function') {
-            showToast(
-                data.message || 'New day added successfully.',
-                'success'
-            );
-        }
-
-        // Reload so Django renders the exact same row layout
-        setTimeout(() => {
-            window.location.reload();
-        }, 600);
-    })
-
-    .catch(error => {
-
-        console.error(
-            'Add day error:',
-            error
-        );
-
-        button.disabled = false;
-        button.innerHTML = originalHTML;
-
-        if (typeof showToast === 'function') {
-            showToast(
-                error.message || 'Failed to add day.',
-                'error'
-            );
-        }
-    });
-}
     function openSubmitModal(taskId, title) {
         document.getElementById('submit_task_id').value = taskId;
         document.getElementById('submit_task_title').innerText = title;
         document.getElementById('submitModal').classList.add('active');
     }
 
-    function closeModal(id) {
-        document.getElementById(id).classList.remove('active');
-    }
+    function updateTaskStatus(taskId, newStatus, weekId) {
+        const selectEl = document.getElementById(`select_task_${taskId}`);
+        const previousValue = selectEl ? selectEl.dataset.prevValue || selectEl.value : null;
+        if (selectEl) selectEl.disabled = true;
 
-    function updateTaskStatus(taskId, newStatus) {
         const formData = new FormData();
         formData.append('status', newStatus);
 
-        fetch(`/task/${taskId}/update_status/`, {
+        fetch(ENDPOINTS.updateTaskStatus(taskId), {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrftoken },
+            headers: { 'X-CSRFToken': getCsrfToken() },
             body: formData
-        }).then(res => res.json()).then(data => {
-            if (data.success) {
-                document.getElementById('stat_progress').innerText = `${data.progress_pct}%`;
-                document.getElementById('progress_pct_text').innerText = `${data.progress_pct}%`;
-                document.getElementById('progress_fill').style.width = `${data.progress_pct}%`;
-                document.getElementById('stat_completed').innerText = data.completed_tasks;
-                document.getElementById('stat_in_progress').innerText = data.in_progress_tasks;
-                document.getElementById('stat_pending').innerText = data.pending_tasks;
-                if (typeof showToast === 'function') showToast('Task status updated successfully!', 'success');
-            } else {
-                if (typeof showToast === 'function') showToast(data.error || 'Failed to update task status.', 'error');
+        })
+        .then(async res => {
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Failed to update task status.');
+            return data;
+        })
+        .then(data => {
+            const setText = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+            setText('stat_progress', `${data.progress_pct}%`);
+            setText('progress_pct_text', `${data.progress_pct}%`);
+            setText('stat_completed', data.completed_tasks);
+            setText('stat_in_progress', data.in_progress_tasks);
+            setText('stat_pending', data.pending_tasks);
+
+            const overallFill = document.getElementById('progress_fill');
+            if (overallFill) overallFill.style.width = `${data.progress_pct}%`;
+
+            if (data.week_id) {
+                setText(
+                    `week_progress_text_${data.week_id}`,
+                    `${data.week_progress_pct}% (${data.week_completed_tasks}/${data.week_total_tasks} Tasks Completed)`
+                );
+                const weekFill = document.getElementById(`week_progress_fill_${data.week_id}`);
+                if (weekFill) weekFill.style.width = `${data.week_progress_pct}%`;
             }
+
+            if (selectEl) {
+                selectEl.dataset.prevValue = newStatus;
+                selectEl.disabled = false;
+            }
+            if (typeof showToast === 'function') showToast('Task status updated successfully!', 'success');
+        })
+        .catch(err => {
+            if (selectEl) {
+                if (previousValue !== null) selectEl.value = previousValue;
+                selectEl.disabled = false;
+            }
+            if (typeof showToast === 'function') showToast(err.message, 'error');
         });
     }
 
-
-
-    // Work Submission Handler
     document.getElementById('submissionForm').addEventListener('submit', function (e) {
         e.preventDefault();
         const taskId = document.getElementById('submit_task_id').value;
         const formData = new FormData(this);
 
-        fetch(`/academics/task/${taskId}/submit/`, {
+        fetch(ENDPOINTS.submitTask(taskId), {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrftoken },
+            headers: { 'X-CSRFToken': getCsrfToken() },
             body: formData
-        }).then(res => res.json()).then(data => {
+        })
+        .then(res => res.json())
+        .then(data => {
             if (data.success) {
-                if (typeof showToast === 'function') showToast(data.message, 'success');
+                if (typeof showToast === 'function') showToast(data.message || 'Deliverable submitted!', 'success');
                 closeModal('submitModal');
-                setTimeout(() => window.location.reload(), 1000);
+                setTimeout(() => window.location.reload(), 600);
             } else {
-                if (typeof showToast === 'function') showToast(data.error || 'Submission failed.', 'error');
+                throw new Error(data.error || 'Submission failed.');
             }
+        })
+        .catch(err => {
+            if (typeof showToast === 'function') showToast(err.message, 'error');
         });
     });
 
-    // Chat Drawer Logic
-    let currentChatTargetId = null;
-
+    // 1. Open Chat Drawer & Ensure Modal Displays
     function openChatDrawer(recipientId, name) {
+        if (!recipientId) return;
+        
         currentChatTargetId = recipientId;
-        document.getElementById('chat_recipient_id').value = recipientId;
-        document.getElementById('chatModal').classList.add('active');
+        
+        const recipientInput = document.getElementById('chat_recipient_id');
+        const modal = document.getElementById('chatModal');
+        
+        if (recipientInput) recipientInput.value = recipientId;
+        if (modal) modal.classList.add('active');
+        
         loadChatMessages(recipientId);
     }
 
+    // 2. Fetch & Render Messages
     function loadChatMessages(targetId) {
         const chatContainer = document.getElementById('chatMessages');
-        fetch(`/messages/thread/?target_user_id=${targetId}`)
+        if (!chatContainer) return;
+
+        const url = `${ENDPOINTS.getMessages}?target_user_id=${targetId}`;
+
+        fetch(url)
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    if (data.messages.length === 0) {
-                        chatContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin: auto;">No messages yet. Send a message to start conversation!</div>`;
+                    if (!data.messages || data.messages.length === 0) {
+                        chatContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.88rem; margin: auto;">No messages yet. Send a message to start conversation!</div>`;
                         return;
                     }
                     chatContainer.innerHTML = data.messages.map(m => `
-                    <div style="align-self: ${m.is_me ? 'flex-end' : 'flex-start'}; max-width: 80%;">
-                        <div style="font-size: 0.72rem; color: var(--text-dim); margin-bottom: 2px; text-align: ${m.is_me ? 'right' : 'left'};">${m.sender_name} · ${m.created_at}</div>
-                        <div style="background: ${m.is_me ? 'linear-gradient(135deg, var(--primary), #4f46e5)' : 'rgba(31, 41, 61, 0.9)'}; border: 1px solid var(--border-color); color: #fff; padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; word-break: break-word;">
-                            ${m.content}
+                        <div id="msg-bubble-${m.id}" style="align-self: ${m.is_me ? 'flex-end' : 'flex-start'}; max-width: 80%;">
+                            <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 3px; text-align: ${m.is_me ? 'right' : 'left'};">
+                                ${m.sender_name} · ${m.created_at}
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; justify-content: ${m.is_me ? 'flex-end' : 'flex-start'}; flex-direction: row;">
+                                <div style="background: ${m.is_me ? 'linear-gradient(135deg, var(--primary), #4f46e5)' : 'var(--bg-card)'}; border: 1px solid var(--border-color); color: ${m.is_me ? '#ffffff' : 'var(--text-main)'}; padding: 10px 14px; border-radius: 14px; font-size: 0.95rem; word-break: break-word;">
+                                    ${m.content}
+                                </div>
+                                ${m.is_me ? `
+                                    <button type="button" 
+                                            onclick="openDeleteMsgModal(${m.id})" 
+                                            style="background: transparent; border: none; color: var(--accent-rose, #f43f5e); cursor: pointer; padding: 4px; font-size: 0.85rem; opacity: 0.75; transition: opacity 0.2s; flex-shrink: 0;" 
+                                            onmouseover="this.style.opacity='1'" 
+                                            onmouseout="this.style.opacity='0.75'"
+                                            title="Delete Message">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
                         </div>
-                    </div>
-                `).join('');
+                    `).join('');
                     chatContainer.scrollTop = chatContainer.scrollHeight;
                 }
+            })
+            .catch(err => {
+                console.error("Chat load error:", err);
+                chatContainer.innerHTML = `<div style="text-align: center; color: var(--accent-rose); font-size: 0.88rem; margin: auto;">Failed to load messages.</div>`;
             });
     }
 
+    // 3. Send Message Form Event
     document.getElementById('chatForm').addEventListener('submit', function (e) {
         e.preventDefault();
+
+        const inputField = document.getElementById('chat_input');
+        const recipientInput = document.getElementById('chat_recipient_id');
+        const targetId = recipientInput ? recipientInput.value : currentChatTargetId;
+
+        if (!inputField || !inputField.value.trim() || !targetId) return;
+
         const formData = new FormData(this);
-        fetch('/messages/send/', {
+
+        fetch(ENDPOINTS.sendMessage, {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrftoken },
+            headers: { 'X-CSRFToken': getCsrfToken() },
             body: formData
-        }).then(res => res.json()).then(data => {
+        })
+        .then(res => res.json())
+        .then(data => {
             if (data.success) {
-                document.getElementById('chat_input').value = '';
-                loadChatMessages(currentChatTargetId);
+                inputField.value = ''; // Instant clear typing bar
+                loadChatMessages(targetId); // Instant refresh message list
             } else {
                 if (typeof showToast === 'function') showToast(data.error || 'Failed to send message.', 'error');
             }
+        })
+        .catch(err => {
+            inputField.value = '';
+            if (targetId) loadChatMessages(targetId);
         });
     });
+
+    // 4. Delete Message Confirmation Modal
+    function openDeleteMsgModal(messageId) {
+        pendingDeleteMessageId = messageId;
+        const modal = document.getElementById('deleteConfirmModal');
+        const confirmBtn = document.getElementById('confirmDeleteMsgBtn');
+        
+        if (modal) {
+            modal.classList.add('active');
+            confirmBtn.onclick = async () => {
+                closeModal('deleteConfirmModal');
+                if (pendingDeleteMessageId) {
+                    await executeMessageDeletion(pendingDeleteMessageId);
+                }
+            };
+        }
+    }
+
+    // 5. Execute Delete Request
+    async function executeMessageDeletion(messageId) {
+        try {
+            const response = await fetch(`/message/${messageId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                const bubble = document.getElementById(`msg-bubble-${messageId}`);
+                if (bubble) bubble.remove();
+                if (typeof showToast === 'function') showToast('Message deleted successfully.', 'success');
+            } else {
+                if (typeof showToast === 'function') showToast(data.error || 'Failed to delete message.', 'error');
+            }
+        } catch (err) {
+            if (typeof showToast === 'function') showToast('Server error deleting message.', 'error');
+        }
+    }
 </script>
 {% endblock %}

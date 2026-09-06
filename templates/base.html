@@ -4,6 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Internship Management Portal{% endblock %}</title>
+    <script>
+    // Apply saved theme immediately before render to avoid theme flash
+    (function () {
+        const savedTheme = localStorage.getItem('ifl-theme');
+        const theme = savedTheme || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+    </script>
+    <script>
+    if (typeof window.csrftoken === 'undefined') {
+        window.csrftoken = "{{ csrf_token }}";
+    }
+    function getCsrfToken() {
+        return window.csrftoken;
+    }
+    </script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,34 +29,68 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* ==========================================================
+           THEME SYSTEM — Corporate White / Slate (default) + Dark Mode
+           ========================================================== */
         :root {
-            --bg-body: #0b0f19;
+            /* --- Light Mode (default): Corporate White / Slate --- */
+            --bg-body: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f1f5f9;
+            --bg-subtle: #f1f5f9;
+            --border-color: #e2e8f0;
+            --border-highlight: rgba(79, 70, 229, 0.3);
+
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-glow: rgba(79, 70, 229, 0.18);
+
+            --accent-emerald: #059669;
+            --accent-amber: #d97706;
+            --accent-sky: #0284c7;
+            --accent-rose: #e11d48;
+
+            --text-main: #0f172a;        /* Deep Slate - visible on white */
+            --text-muted: #475569;       /* Slate Muted */
+            --text-dim: #94a3b8;
+            --text-on-primary: #ffffff;
+
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+
+            --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
+            --shadow-glow: 0 4px 14px rgba(79, 70, 229, 0.12);
+            --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* --- Dark Mode: Charcoal / Slate --- */
+        [data-theme="dark"] {
+            --bg-body: #0f172a;
             --bg-surface: #111827;
-            --bg-card: #1f293d;
+            --bg-card: #1e293b;
             --bg-card-hover: #26334d;
-            --border-color: rgba(255, 255, 255, 0.08);
+            --bg-subtle: rgba(255, 255, 255, 0.04);
+            --border-color: rgba(255, 255, 255, 0.1);
             --border-highlight: rgba(99, 102, 241, 0.3);
-            
+
             --primary: #6366f1;
-            --primary-hover: #4f46e5;
+            --primary-hover: #818cf8;
             --primary-glow: rgba(99, 102, 241, 0.25);
-            
+
             --accent-emerald: #10b981;
             --accent-amber: #f59e0b;
             --accent-sky: #06b6d4;
             --accent-rose: #f43f5e;
-            
-            --text-main: #f3f4f6;
+
+            --text-main: #f8fafc;
             --text-muted: #9ca3af;
             --text-dim: #6b7280;
-            
-            --radius-sm: 8px;
-            --radius-md: 14px;
-            --radius-lg: 20px;
-            
+            --text-on-primary: #ffffff;
+
             --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
             --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.15);
-            --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * {
@@ -52,15 +102,30 @@
         body {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg-body);
-            background-image: 
-                radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-                radial-gradient(at 90% 90%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+            background-image:
+                radial-gradient(at 10% 10%, rgba(79, 70, 229, 0.05) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(5, 150, 105, 0.04) 0px, transparent 50%);
             background-attachment: fixed;
             color: var(--text-main);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             line-height: 1.6;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        [data-theme="dark"] body {
+            background-image:
+                radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+        }
+
+        /* Enforce heading visibility across light/dark themes */
+        h1, h2, h3, h4, h5, h6, .admin-title, .page-title {
+            color: var(--text-main) !important;
+        }
+        p, .subtitle, .description {
+            color: var(--text-muted);
         }
 
         a {
@@ -75,7 +140,7 @@
 
         /* Header Navbar */
         header.navbar {
-            background: rgba(17, 24, 39, 0.85);
+            background: var(--bg-surface);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border-color);
@@ -95,7 +160,7 @@
             gap: 12px;
             font-weight: 800;
             font-size: 1.25rem;
-            color: #fff;
+            color: var(--text-main);
             letter-spacing: -0.02em;
         }
 
@@ -107,7 +172,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            color: var(--text-on-primary);
             font-size: 1.2rem;
             box-shadow: 0 4px 14px var(--primary-glow);
         }
@@ -115,30 +180,61 @@
         .user-nav {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 14px;
         }
 
-        .user-badge {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 6px 14px 6px 8px;
-            border-radius: 30px;
-            border: 1px solid var(--border-color);
-        }
-
-        .user-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+        /* Interactive Icon Buttons */
+        .nav-icon-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            font-size: 0.85rem;
-            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            font-size: 1rem;
+        }
+
+        .nav-icon-btn:hover {
+            border-color: var(--border-highlight);
+            color: var(--primary);
+            background: var(--bg-card-hover);
+        }
+
+        /* User Profile Button */
+        .user-profile-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-subtle);
+            padding: 5px 14px 5px 6px;
+            border-radius: 30px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            color: var(--text-main);
+        }
+
+        .user-profile-btn:hover {
+            border-color: var(--border-highlight);
+            background: var(--bg-card-hover);
+        }
+
+        .user-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #06b6d4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.9rem;
+            color: #ffffff;
         }
 
         .role-pill {
@@ -148,41 +244,71 @@
             letter-spacing: 0.05em;
             padding: 2px 8px;
             border-radius: 12px;
-            background: rgba(99, 102, 241, 0.2);
-            color: #818cf8;
-            border: 1px solid rgba(99, 102, 241, 0.3);
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary);
+            border: 1px solid rgba(99, 102, 241, 0.25);
         }
 
         .role-pill.supervisor {
-            background: rgba(16, 185, 129, 0.18);
-            color: #34d399;
-            border-color: rgba(16, 185, 129, 0.3);
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-emerald);
+            border-color: rgba(16, 185, 129, 0.25);
         }
 
         .role-pill.admin {
-            background: rgba(244, 63, 94, 0.18);
-            color: #fb7185;
-            border-color: rgba(244, 63, 94, 0.3);
+            background: rgba(244, 63, 94, 0.15);
+            color: var(--accent-rose);
+            border-color: rgba(244, 63, 94, 0.25);
         }
 
-        .logout-btn {
-            background: rgba(244, 63, 94, 0.1);
-            color: var(--accent-rose);
-            border: 1px solid rgba(244, 63, 94, 0.2);
-            padding: 8px 16px;
-            border-radius: var(--radius-sm);
-            font-weight: 600;
-            font-size: 0.875rem;
-            display: inline-flex;
+        /* Dropdown Menus */
+        .menu-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 52px;
+            width: 240px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            z-index: 1000;
+            overflow: hidden;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dropdown-item {
+            width: 100%;
+            padding: 12px 16px;
+            display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            color: var(--text-main);
+            font-size: 0.88rem;
+            font-weight: 600;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            text-align: left;
             transition: var(--transition-fast);
         }
 
-        .logout-btn:hover {
-            background: rgba(244, 63, 94, 0.2);
-            color: #ff6b81;
-            transform: translateY(-1px);
+        .dropdown-item:hover {
+            background: var(--bg-subtle);
+            color: var(--primary);
+        }
+
+        .dropdown-item.danger {
+            color: var(--accent-rose);
+        }
+
+        .dropdown-item.danger:hover {
+            background: rgba(244, 63, 94, 0.08);
         }
 
         /* Container Layout */
@@ -206,7 +332,7 @@
         }
 
         .card:hover {
-            border-color: rgba(255, 255, 255, 0.12);
+            border-color: var(--border-highlight);
         }
 
         .card-header {
@@ -219,7 +345,7 @@
         .card-title {
             font-size: 1.15rem;
             font-weight: 700;
-            color: #fff;
+            color: var(--text-main);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -238,7 +364,7 @@
         }
 
         .stat-card {
-            background: rgba(31, 41, 61, 0.6);
+            background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             padding: 20px;
@@ -247,6 +373,7 @@
             gap: 16px;
             position: relative;
             overflow: hidden;
+            box-shadow: var(--shadow-card);
         }
 
         .stat-card::before {
@@ -282,7 +409,7 @@
         .stat-value {
             font-size: 1.6rem;
             font-weight: 800;
-            color: #fff;
+            color: var(--text-main);
             line-height: 1.2;
         }
 
@@ -295,7 +422,7 @@
         /* Progress Bar */
         .progress-bar-container {
             width: 100%;
-            background: rgba(255, 255, 255, 0.08);
+            background: var(--bg-subtle);
             border-radius: 10px;
             height: 12px;
             overflow: hidden;
@@ -326,7 +453,7 @@
         }
 
         table.custom-table th {
-            background: rgba(17, 24, 39, 0.6);
+            background: var(--bg-subtle);
             color: var(--text-muted);
             font-size: 0.8rem;
             font-weight: 700;
@@ -338,70 +465,22 @@
 
         table.custom-table td {
             padding: 16px 18px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border-color);
             font-size: 0.9rem;
             vertical-align: middle;
+            color: var(--text-main);
         }
 
         table.custom-table tr:hover td {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        /* Status Badges */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            text-transform: capitalize;
-        }
-
-        .badge-pending {
-            background: rgba(245, 158, 11, 0.15);
-            color: #fbbf24;
-            border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-
-        .badge-in_progress {
-            background: rgba(6, 182, 212, 0.15);
-            color: #38bdf8;
-            border: 1px solid rgba(6, 182, 212, 0.3);
-        }
-
-        .badge-completed {
-            background: rgba(16, 185, 129, 0.15);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-
-        /* Status Select Dropdown */
-        .status-select {
-            background: rgba(17, 24, 39, 0.8);
-            color: #fff;
-            border: 1px solid var(--border-color);
-            padding: 6px 12px;
-            border-radius: var(--radius-sm);
-            font-size: 0.85rem;
-            font-family: inherit;
-            cursor: pointer;
-            outline: none;
-            transition: var(--transition-fast);
-        }
-
-        .status-select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
+            background: var(--bg-subtle);
         }
 
         /* Form Inputs & Buttons */
         .form-control {
             width: 100%;
-            background: rgba(17, 24, 39, 0.7);
+            background: var(--bg-surface);
             border: 1px solid var(--border-color);
-            color: #fff;
+            color: var(--text-main);
             padding: 12px 16px;
             border-radius: var(--radius-sm);
             font-size: 0.95rem;
@@ -413,7 +492,6 @@
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px var(--primary-glow);
-            background: rgba(17, 24, 39, 0.95);
         }
 
         .btn {
@@ -422,7 +500,7 @@
             justify-content: center;
             gap: 8px;
             background: var(--primary);
-            color: white;
+            color: var(--text-on-primary);
             border: none;
             padding: 12px 24px;
             border-radius: var(--radius-sm);
@@ -446,8 +524,8 @@
         }
 
         .btn-outline:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.2);
+            background: var(--bg-subtle);
+            border-color: var(--border-highlight);
         }
 
         /* Toast Notifications */
@@ -462,13 +540,13 @@
         }
 
         .toast {
-            background: #1f293d;
-            color: #fff;
+            background: var(--bg-card);
+            color: var(--text-main);
             border: 1px solid var(--border-color);
             border-left: 4px solid var(--accent-emerald);
             padding: 14px 20px;
             border-radius: var(--radius-sm);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            box-shadow: var(--shadow-card);
             display: flex;
             align-items: center;
             gap: 12px;
@@ -510,7 +588,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
             transform: scale(0.95);
             transition: transform 0.25s ease;
         }
@@ -540,7 +618,7 @@
             cursor: pointer;
         }
 
-        .close-modal:hover { color: #fff; }
+        .close-modal:hover { color: var(--text-main); }
     </style>
 </head>
 <body>
@@ -549,61 +627,75 @@
             <div class="brand-icon"><i class="fa-solid fa-graduation-cap"></i></div>
             <span>IFL Interns</span>
         </a>
+
         <div class="user-nav">
+            <!-- 1. Theme Toggle: Sun/Moon -->
+            <button id="themeToggleBtn" class="nav-icon-btn" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle theme">
+                <i id="themeToggleIcon" class="fa-solid fa-moon"></i>
+            </button>
+
             {% if user.is_authenticated %}
-                <!-- Notification Dropdown -->
+                <!-- 2. Notifications Bell Dropdown -->
                 <div class="notif-wrapper" style="position: relative;">
-                    <button id="notifBtn" onclick="toggleNotifications()" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-main); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;">
+                    <button id="notifBtn" onclick="toggleNotifications(event)" class="nav-icon-btn" style="position: relative;" title="Notifications">
                         <i class="fa-regular fa-bell" style="font-size: 1.1rem;"></i>
-                        <span id="notifBadge" style="display: none; position: absolute; top: -2px; right: -2px; background: var(--accent-rose); color: #fff; font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center;">0</span>
+                        <span id="notifBadge" style="display: none; position: absolute; top: -2px; right: -2px; background: var(--accent-rose); color: #ffffff; font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 10px; min-width: 18px; text-align: center;">0</span>
                     </button>
 
-                    <div id="notifDropdown" style="display: none; position: absolute; right: 0; top: 50px; width: 340px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: 0 15px 35px rgba(0,0,0,0.6); z-index: 1000; overflow: hidden;">
-                        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div id="notifDropdown" class="menu-dropdown" style="width: 320px;">
+                        <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; color: var(--text-main);">
                             <span><i class="fa-solid fa-bell" style="color: var(--primary);"></i> Notifications</span>
                             <span id="notifCountText" style="font-size: 0.75rem; color: var(--text-muted);">0 unread</span>
                         </div>
-                        <div id="notifList" style="max-height: 320px; overflow-y: auto; padding: 8px 0;">
+                        <div id="notifList" style="max-height: 300px; overflow-y: auto;">
                             <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading notifications...</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="user-badge">
-                    <div class="user-avatar">{{ user.first_name|default:user.username|slice:":1"|upper }}</div>
-                    <div>
-                        <span style="font-weight: 600; font-size: 0.9rem; display: block; line-height: 1.2;">
-                            {{ user.get_full_name|default:user.username }}
-                        </span>
-                        <span class="role-pill {{ user.role }}">{{ user.get_role_display }}</span>
-                    </div>
-                </div>
-
-                {% if user.role == 'admin' or user.is_superuser %}
-                    <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-outline" style="padding: 6px 14px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-user-shield"></i> Admin Portal
-                    </a>
-                {% endif %}
-                <form method="POST"
-                    action="{% url 'accounts:logout' %}"
-                    style="margin: 0;">
-                    
-                    {% csrf_token %}
-
-                    <button type="submit"
-                            class="logout-btn"
-                            style="width: 100%; border: none; cursor: pointer;">
-                        <i class="fa-solid fa-right-from-bracket"></i>
-                        Logout
+                <!-- 3. User Avatar & Dropdown Menu -->
+                <div style="position: relative;">
+                    <button type="button" onclick="toggleUserDropdown(event)" id="userDropdownBtn" class="user-profile-btn">
+                        <div class="user-avatar">
+                            {{ user.first_name|default:user.username|slice:":1"|upper }}
+                        </div>
+                        <div style="text-align: left;">
+                            <span style="font-weight: 700; font-size: 0.88rem; display: block; line-height: 1.1; color: var(--text-main);">
+                                {{ user.get_full_name|default:user.username }}
+                            </span>
+                            <span class="role-pill {{ user.role }}" style="font-size: 0.65rem; padding: 1px 6px;">{{ user.get_role_display }}</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down" style="font-size: 0.72rem; color: var(--text-muted); margin-left: 4px;"></i>
                     </button>
 
-                </form>
+                    <!-- Profile Dropdown Content -->
+                    <div id="userDropdownMenu" class="menu-dropdown">
+                        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Signed in as</div>
+                            <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ user.email|default:user.username }}
+                            </div>
+                        </div>
+
+                        {% if user.role == 'admin' or user.is_superuser %}
+                            <a href="{% url 'dashboard:admin_dashboard' %}" class="dropdown-item">
+                                <i class="fa-solid fa-user-shield" style="color: var(--primary);"></i> Admin Portal
+                            </a>
+                        {% endif %}
+
+                        <form method="POST" action="{% url 'accounts:logout' %}" style="margin: 0;">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item danger">
+                                <i class="fa-solid fa-right-from-bracket"></i> Log Out
+                            </button>
+                        </form>
+                    </div>
+                </div>
             {% else %}
                 <a href="{% url 'accounts:login' %}" class="btn btn-outline" style="padding: 8px 18px;">Login</a>
                 <a href="{% url 'accounts:activate' %}" class="btn" style="padding: 8px 18px;">Activate Account</a>
             {% endif %}
         </div>
-
     </header>
 
     <div class="container">
@@ -613,6 +705,72 @@
     <div id="toast-container"></div>
 
     <script>
+        // ==========================================================
+        // Theme Toggle System
+        // ==========================================================
+        function applyThemeIcon(theme) {
+            const icon = document.getElementById('themeToggleIcon');
+            if (!icon) return;
+            icon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('ifl-theme', next);
+            applyThemeIcon(next);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            applyThemeIcon(document.documentElement.getAttribute('data-theme') || 'light');
+        });
+
+        // ==========================================================
+        // Dropdowns Management
+        // ==========================================================
+        function toggleUserDropdown(e) {
+            if (e) e.stopPropagation();
+            const notifDropdown = document.getElementById('notifDropdown');
+            if (notifDropdown) notifDropdown.style.display = 'none';
+
+            const userMenu = document.getElementById('userDropdownMenu');
+            if (!userMenu) return;
+            userMenu.style.display = (userMenu.style.display === 'block') ? 'none' : 'block';
+        }
+
+        function toggleNotifications(e) {
+            if (e) e.stopPropagation();
+            const userMenu = document.getElementById('userDropdownMenu');
+            if (userMenu) userMenu.style.display = 'none';
+
+            const notifDropdown = document.getElementById('notifDropdown');
+            if (!notifDropdown) return;
+            const isVisible = notifDropdown.style.display === 'block';
+            notifDropdown.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                fetchNotifications();
+            }
+        }
+
+        // Auto-close dropdowns when clicking anywhere outside
+        document.addEventListener('click', function (e) {
+            const userMenu = document.getElementById('userDropdownMenu');
+            const userBtn = document.getElementById('userDropdownBtn');
+            if (userMenu && userBtn && !userBtn.contains(e.target) && !userMenu.contains(e.target)) {
+                userMenu.style.display = 'none';
+            }
+
+            const notifDropdown = document.getElementById('notifDropdown');
+            const notifBtn = document.getElementById('notifBtn');
+            if (notifDropdown && notifBtn && !notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
+                notifDropdown.style.display = 'none';
+            }
+        });
+
+        // ==========================================================
+        // Toast System
+        // ==========================================================
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -644,17 +802,9 @@
         }
         const csrftoken = getCookie('csrftoken');
 
-        // Notification System Script
-        function toggleNotifications() {
-            const dropdown = document.getElementById('notifDropdown');
-            if (!dropdown) return;
-            const isVisible = dropdown.style.display === 'block';
-            dropdown.style.display = isVisible ? 'none' : 'block';
-            if (!isVisible) {
-                fetchNotifications();
-            }
-        }
-
+        // ==========================================================
+        // Notification API Handler
+        // ==========================================================
         function fetchNotifications() {
             fetch('/notifications/')
                 .then(res => res.json())
@@ -679,8 +829,8 @@
                         }
 
                         list.innerHTML = data.notifications.map(n => `
-                            <div onclick="markNotifRead(${n.id}, '${n.link}')" style="padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; background: ${n.is_read ? 'transparent' : 'rgba(99,102,241,0.08)'}; transition: background 0.2s ease;">
-                                <div style="font-weight: 700; font-size: 0.82rem; color: ${n.is_read ? 'var(--text-muted)' : '#fff'}; margin-bottom: 2px;">
+                            <div onclick="markNotifRead(${n.id}, '${n.link}')" style="padding: 10px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; background: ${n.is_read ? 'transparent' : 'var(--bg-subtle)'}; transition: background 0.2s ease;">
+                                <div style="font-weight: 700; font-size: 0.82rem; color: ${n.is_read ? 'var(--text-muted)' : 'var(--text-main)'}; margin-bottom: 2px;">
                                     ${n.title}
                                 </div>
                                 <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.3;">${n.message}</div>
@@ -701,7 +851,6 @@
             });
         }
 
-        // Auto fetch unread count on page load if user logged in
         {% if user.is_authenticated %}
             document.addEventListener('DOMContentLoaded', fetchNotifications);
         {% endif %}
@@ -709,4 +858,3 @@
     {% block scripts %}{% endblock %}
 </body>
 </html>
-

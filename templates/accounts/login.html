@@ -3,12 +3,14 @@
 
 {% block content %}
 <div style="max-width: 480px; margin: 40px auto;">
-    <div class="card" style="padding: 32px; border-radius: var(--radius-lg); background: rgba(31, 41, 61, 0.85); backdrop-filter: blur(12px);">
+    <!-- Swapped hardcoded dark background for theme variables -->
+    <div class="card" style="padding: 32px; border-radius: var(--radius-lg); background: var(--bg-card); border: 1px solid var(--border-color); backdrop-filter: blur(12px);">
         <div style="text-align: center; margin-bottom: 24px;">
             <div class="brand-icon" style="margin: 0 auto 16px auto; width: 52px; height: 52px; font-size: 1.6rem;">
                 <i class="fa-solid fa-graduation-cap"></i>
             </div>
-            <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 6px;">Sign In to IFL Interns</h2>
+            <!-- Changed hardcoded color: #fff to color: var(--text-main) -->
+            <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 6px;">Sign In to IFL Interns</h2>
 
             <p style="color: var(--text-muted); font-size: 0.88rem;">Access your dashboard using your Email address or Intern ID</p>
         </div>
@@ -27,7 +29,7 @@
                     Email Address
                 </label>
                 <div style="position: relative;">
-                    <i class="fa-regular fa-envelope" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <i class="fa-regular fa-envelope" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-dim);"></i>
                     <input type="text" id="id_username" name="username" class="form-control" placeholder="name@example.com" required autofocus style="padding-left: 42px;">
                 </div>
             </div>
@@ -37,7 +39,7 @@
                     Password
                 </label>
                 <div style="position: relative;">
-                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <i class="fa-solid fa-lock" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-dim);"></i>
                     <input type="password" id="id_password" name="password" class="form-control" placeholder="••••••••" required style="padding-left: 42px;">
                 </div>
             </div>
@@ -47,7 +49,7 @@
             </button>
         </form>
 
-        <!-- Development-Only Quick Demo Login Pills (Hidden in Production when DEBUG=False) -->
+        <!-- Development-Only Quick Demo Login Pills -->
         {% if debug %}
         <div style="margin-top: 24px; padding-top: 18px; border-top: 1px dashed var(--border-color);">
             <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-amber); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
@@ -69,7 +71,6 @@
             </div>
         </div>
         {% endif %}
-
 
         <div style="margin-top: 24px; text-align: center; font-size: 0.88rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 18px;">
             Issued an Intern ID or Activation Token? <a href="{% url 'accounts:activate' %}" style="font-weight: 700;">Activate Account</a>

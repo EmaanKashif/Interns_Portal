@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_VA5Wyzt1Tt06ioAwccAktGGnIviB",
+      "name": "interns-portal",
+      "directory": ".",
+      "orgId": "team_1GAizvHMCuaC2MrFxrcpSiZr"
+    }
+  ]
+}

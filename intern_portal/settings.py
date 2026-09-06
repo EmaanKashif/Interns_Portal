@@ -59,14 +59,19 @@ ALLOWED_HOSTS = (
 
 csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in csrf_origins_env.split(',')
-    if origin.strip()
-] or [
-    'https://*.vercel.app',
-    'https://*.onrender.com',
-]
+# Fix: Properly parse CSRF origins with fallback
+if csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = [
+        origin.strip()
+        for origin in csrf_origins_env.split(',')
+        if origin.strip()
+    ]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.vercel.app',
+        'https://*.onrender.com',
+    ]
+
 
 # ============================================================
 # APPLICATIONS

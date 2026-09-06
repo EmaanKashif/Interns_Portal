@@ -1,13 +1,40 @@
+# Python
 venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Django
 db.sqlite3
-.env
+db.sqlite3-journal
 media/
-
-.vercel
-.env*
 staticfiles/
+static/
+*.log
+local_settings.py
 
-.vercel
-.env*
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# .vercel - REMOVE THIS LINE (or comment it out)
+# .vercel/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

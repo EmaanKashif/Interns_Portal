@@ -1,7 +1,9 @@
+import mimetypes
 from django.db import models
 from django.utils import timezone
 from accounts.models import InternProfile, CoordinatorProfile
 from django.core.exceptions import ValidationError
+from intern_portal.supabase_storage import SupabaseStorage
 
 
 def validate_submission_file(value):
@@ -18,8 +20,6 @@ class Department(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
 
-    # Each department rotation has its own designated coordinator/contact.
-    # Falls back to the intern's assigned supervisor when left unset.
     coordinator = models.ForeignKey(
         'accounts.CoordinatorProfile',
         on_delete=models.SET_NULL,
@@ -59,14 +59,13 @@ class DepartmentAssignment(models.Model):
         today = timezone.now().date()
         return self.start_date <= today <= self.end_date
 
+
 class InternshipWeek(models.Model):
     intern = models.ForeignKey(InternProfile, on_delete=models.CASCADE, related_name='schedule_weeks')
     week_number = models.IntegerField()
     
-    # Added null=True to prevent department default prompts
     department = models.ForeignKey('Department', on_delete=models.CASCADE, null=True, blank=True)
     
-    # Foreign Key for Weekly Coordinator
     supervisor = models.ForeignKey(
         'accounts.CoordinatorProfile', 
         on_delete=models.SET_NULL, 
@@ -80,7 +79,14 @@ class InternshipWeek(models.Model):
     end_date = models.DateField()
     course_outline_title = models.CharField(max_length=200, blank=True, null=True, default='')
     course_outline_text = models.TextField(blank=True, null=True, default='')
-    course_outline_file = models.FileField(upload_to='outlines/', null=True, blank=True)
+    
+    # Direct Supabase Storage attachment
+    course_outline_file = models.FileField(
+        upload_to='outlines/', 
+        storage=SupabaseStorage(), 
+        null=True, 
+        blank=True
+    )
 
     class Meta:
         ordering = ['week_number']
@@ -142,10 +148,16 @@ class DailyTask(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_started')
-    attached_file = models.FileField(upload_to='task_submissions/', blank=True, null=True)
+    
+    # Direct Supabase Storage attachment
+    attached_file = models.FileField(
+        upload_to='task_submissions/', 
+        storage=SupabaseStorage(), 
+        blank=True, 
+        null=True
+    )
     attached_file_url = models.URLField(blank=True, null=True)
     
-    # Set default=timezone.now to bypass terminal CLI prompts
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
@@ -157,12 +169,7 @@ class DailyTask(models.Model):
         return f"{username} - {self.date} - {self.title}"
 
 
-# --- Compatibility Alias for Legacy Imports ---
 class TaskSubmission(DailyTask):
-    """
-    Proxy model ensuring dashboard/views.py and older modules importing TaskSubmission 
-    continue working seamlessly without raising ImportError.
-    """
     class Meta:
         proxy = True
         verbose_name = "Task Submission"

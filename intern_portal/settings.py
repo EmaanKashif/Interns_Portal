@@ -192,7 +192,6 @@ USE_TZ = True
 # ============================================================
 # STATIC FILES (READ-ONLY SAFE)
 # ============================================================
-
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
@@ -203,11 +202,15 @@ STATICFILES_DIRS = [
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ============================================================
-# MEDIA FILES (READ-ONLY SAFE)
+# MEDIA & STORAGE (VERCEL / SUPABASE SAFE)
 # ============================================================
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Use Supabase storage in production on Vercel
+if os.environ.get('VERCEL') or not DEBUG:
+    DEFAULT_FILE_STORAGE = 'intern_portal.supabase_storage.SupabaseStorage'
 
 
 # ============================================================

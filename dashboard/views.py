@@ -152,13 +152,32 @@ def intern_dashboard(request):
     if not profile:
         return redirect('login')
 
-    assignments = DepartmentAssignment.objects.filter(intern=profile)
-    assigned_departments = [a.department for a in assignments]
+    # FIX: Strictly query InternshipWeek for THIS intern first to prevent cross-intern duplication
+    all_weeks = (
+        InternshipWeek.objects
+        .filter(intern=profile)
+        .select_related('department', 'supervisor')
+        .prefetch_related('topics__tasks')
+        .distinct()
+        .order_by('week_number')
+    )
 
-    if assigned_departments:
-        all_weeks = InternshipWeek.objects.filter(department__in=assigned_departments).prefetch_related('topics__tasks').order_by('week_number')
-    else:
-        all_weeks = InternshipWeek.objects.all().prefetch_related('topics__tasks').order_by('week_number')
+    # Fallback if weeks are not yet directly attached to profile
+    if not all_weeks.exists():
+        assignments = DepartmentAssignment.objects.filter(intern=profile)
+        assigned_dept_ids = assignments.values_list('department_id', flat=True).distinct()
+        
+        if assigned_dept_ids:
+            all_weeks = (
+                InternshipWeek.objects
+                .filter(department_id__in=assigned_dept_ids)
+                .select_related('department', 'supervisor')
+                .prefetch_related('topics__tasks')
+                .distinct()
+                .order_by('week_number')
+            )
+        else:
+            all_weeks = InternshipWeek.objects.none()
 
     progress_data = calculate_intern_progress(profile)
 
@@ -176,7 +195,7 @@ def intern_dashboard(request):
             'completed': w_completed,
             'pct': round((w_completed / w_total) * 100) if w_total > 0 else 0,
         }
-        week.coordinator = week.effective_coordinator
+        week.coordinator = getattr(week, 'effective_coordinator', None) or getattr(week, 'supervisor', None)
 
     context = {
         'profile': profile,
@@ -377,6 +396,7 @@ def get_intern_schedule_api(request, intern_id):
             .filter(intern=intern)
             .select_related('department')
             .prefetch_related('topics__tasks')
+            .distinct()
             .order_by('week_number')
         )
 
@@ -1113,7 +1133,7 @@ def update_task_status(request, task_id):
             allowed = True
         elif coord_profile and owning_intern and (
             owning_intern.supervisor == coord_profile
-            or (week and week.department and week.department.coordinator == coord_profile)
+            or (week and week.department and getattr(week.department, 'coordinator', None) == coord_profile)
         ):
             allowed = True
         elif request.user.is_staff or request.user.is_superuser or getattr(request.user, 'role', '') == 'admin':
@@ -1122,7 +1142,7 @@ def update_task_status(request, task_id):
         if not allowed:
             return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-        if week and week.is_locked and not (request.user.is_staff or request.user.is_superuser):
+        if week and getattr(week, 'is_locked', False) and not (request.user.is_staff or request.user.is_superuser):
             return JsonResponse({'success': False, 'error': 'This week is locked and its tasks are read-only.'}, status=403)
 
         new_status = request.POST.get('status', '').strip()
@@ -1136,8 +1156,9 @@ def update_task_status(request, task_id):
         task.save(update_fields=['status', 'updated_at'])
 
         notify_target = None
-        if week and week.department and week.department.coordinator and week.department.coordinator.user:
-            notify_target = week.department.coordinator.user
+        dept_coord = getattr(week.department, 'coordinator', None) if (week and week.department) else None
+        if dept_coord and dept_coord.user:
+            notify_target = dept_coord.user
         elif owning_intern and owning_intern.supervisor and owning_intern.supervisor.user:
             notify_target = owning_intern.supervisor.user
 
@@ -1204,13 +1225,32 @@ def intern_detail_api(request, intern_id):
     completed = all_tasks.filter(status='completed').count()
     pct = round((completed / total) * 100, 1) if total else 0
 
-    assignments = DepartmentAssignment.objects.filter(intern=intern)
-    assigned_depts = [a.department for a in assignments]
+    # FIX: Strictly query InternshipWeek for THIS intern first to prevent modal duplication
+    weeks_qs = (
+        InternshipWeek.objects
+        .filter(intern=intern)
+        .select_related('department', 'supervisor')
+        .prefetch_related('topics__tasks')
+        .distinct()
+        .order_by('week_number')
+    )
 
-    if assigned_depts:
-        weeks_qs = InternshipWeek.objects.filter(department__in=assigned_depts).prefetch_related('topics__tasks').order_by('week_number')
-    else:
-        weeks_qs = InternshipWeek.objects.all().prefetch_related('topics__tasks').order_by('week_number')
+    # Fallback to assigned departments if weeks aren't directly linked
+    if not weeks_qs.exists():
+        assignments = DepartmentAssignment.objects.filter(intern=intern)
+        assigned_dept_ids = assignments.values_list('department_id', flat=True).distinct()
+
+        if assigned_dept_ids:
+            weeks_qs = (
+                InternshipWeek.objects
+                .filter(department_id__in=assigned_dept_ids)
+                .select_related('department', 'supervisor')
+                .prefetch_related('topics__tasks')
+                .distinct()
+                .order_by('week_number')
+            )
+        else:
+            weeks_qs = InternshipWeek.objects.none()
 
     weeks_data = []
     for week in weeks_qs:
@@ -1218,19 +1258,19 @@ def intern_detail_api(request, intern_id):
         for topic in week.topics.all():
             tasks_data = []
             for task in topic.tasks.filter(intern=intern):
-                has_file = bool(task.attached_file or task.attached_file_url)
-                file_name = os.path.basename(task.attached_file.name) if task.attached_file else ''
+                has_file = bool(getattr(task, 'attached_file', None) or getattr(task, 'attached_file_url', None))
+                file_name = os.path.basename(task.attached_file.name) if getattr(task, 'attached_file', None) else ''
                 
                 tasks_data.append({
                     'id': task.id,
                     'title': task.title,
                     'description': task.description or '',
-                    'due_date': str(task.date) if task.date else '',
+                    'due_date': str(getattr(task, 'date', task.due_date)) if (getattr(task, 'date', None) or task.due_date) else '',
                     'status': task.status,
                     'status_display': task.get_status_display(),
                     'has_submission': has_file or task.status == 'submitted',
                     'file_name': file_name,
-                    'file_url': task.attached_file.url if task.attached_file else (task.attached_file_url or ''),
+                    'file_url': task.attached_file.url if getattr(task, 'attached_file', None) else (getattr(task, 'attached_file_url', '') or ''),
                 })
             topics_data.append({
                 'id': topic.id,
@@ -1244,9 +1284,9 @@ def intern_detail_api(request, intern_id):
             'department': week.department.name if week.department else 'General',
             'start_date': str(week.start_date),
             'end_date': str(week.end_date),
-            'course_outline_title': week.course_outline_title or '',
-            'course_outline_text': week.course_outline_text or '',
-            'course_outline_file_url': week.course_outline_file.url if week.course_outline_file else '',
+            'course_outline_title': getattr(week, 'course_outline_title', '') or '',
+            'course_outline_text': getattr(week, 'course_outline_text', '') or '',
+            'course_outline_file_url': week.course_outline_file.url if (hasattr(week, 'course_outline_file') and week.course_outline_file) else '',
             'topics': topics_data
         })
 

@@ -248,7 +248,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # PRODUCTION SECURITY
 # ============================================================
 
-if not DEBUG:
+# ============================================================
+# PRODUCTION SECURITY
+# ============================================================
+
+if not DEBUG and os.environ.get('VERCEL'):
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
@@ -258,3 +262,8 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+else:
+    # Disable SSL enforcement for local development
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False

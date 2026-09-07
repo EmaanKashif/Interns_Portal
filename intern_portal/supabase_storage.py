@@ -1,46 +1,33 @@
 import mimetypes
-
 from django.conf import settings
 from django.core.files.storage import Storage
 from django.core.files.utils import validate_file_name
 from django.utils.deconstruct import deconstructible
-
 from supabase import create_client
 
 
 @deconstructible
 class SupabaseStorage(Storage):
     """
-    Django storage backend for course-outline files.
-
-    Files are uploaded directly to Supabase Storage instead of
-    Django's local filesystem.
+    Django storage backend for file uploads via Supabase Storage API.
     """
 
     def __init__(self):
-        self.supabase_url = settings.SUPABASE_URL
-        self.supabase_secret_key = settings.SUPABASE_SECRET_KEY
-        self.bucket = settings.SUPABASE_STORAGE_BUCKET
+        self.supabase_url = getattr(settings, 'SUPABASE_URL', '')
+        self.supabase_secret_key = getattr(settings, 'SUPABASE_SECRET_KEY', '')
+        self.bucket = getattr(settings, 'SUPABASE_STORAGE_BUCKET', 'course-outline')
 
-        if not self.supabase_url:
-            raise RuntimeError(
-                "SUPABASE_URL is not configured."
-            )
+        if not self.supabase_url or not self.supabase_secret_key:
+            raise RuntimeError("SUPABASE_URL or SUPABASE_SECRET_KEY is not properly set in settings/env.")
 
-        if not self.supabase_secret_key:
-            raise RuntimeError(
-                "SUPABASE_SECRET_KEY is not configured."
-            )
-
-        if not self.bucket:
-            raise RuntimeError(
-                "SUPABASE_STORAGE_BUCKET is not configured."
-            )
-
+        # Initialize standard client without custom ClientOptions object
         self.client = create_client(
             self.supabase_url,
-            self.supabase_secret_key,
+            self.supabase_secret_key
         )
+
+        # Ensure headers carry the service_role secret key directly
+        self.client.postgrest.auth(self.supabase_secret_key)
 
     def _save(self, name, content):
         name = validate_file_name(name, allow_relative_path=True)
@@ -66,17 +53,13 @@ class SupabaseStorage(Storage):
         return name
 
     def _open(self, name, mode="rb"):
-        raise NotImplementedError(
-            "Supabase files are served through their public URL."
-        )
+        raise NotImplementedError("Supabase files are served through public URLs.")
 
     def exists(self, name):
         return False
 
     def url(self, name):
-        return self.client.storage.from_(
-            self.bucket
-        ).get_public_url(name)
+        return self.client.storage.from_(self.bucket).get_public_url(name)
 
     def size(self, name):
         return 0
@@ -84,4 +67,7 @@ class SupabaseStorage(Storage):
     def delete(self, name):
         if not name:
             return
-        self.client.storage.from_(self.bucket).remove([name])
+        try:
+            self.client.storage.from_(self.bucket).remove([name])
+        except Exception:
+            pass

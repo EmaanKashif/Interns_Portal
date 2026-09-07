@@ -125,7 +125,8 @@ def admin_dashboard(request):
     coordinators = CoordinatorProfile.objects.select_related('user').all()
     total_coordinators = coordinators.count()
 
-    interns = InternProfile.objects.select_related('supervisor__user', 'user').all()
+    # FIX: Filter ONLY active interns so removed ones are hidden from the main list!
+    interns = InternProfile.objects.filter(is_active=True).select_related('supervisor__user', 'user')
     schedule_interns = InternProfile.objects.filter(is_active=True).select_related('supervisor__user', 'user')
     departments = Department.objects.all()
 
@@ -394,7 +395,7 @@ def get_intern_schedule_api(request, intern_id):
         weeks = (
             InternshipWeek.objects
             .filter(intern=intern)
-            .select_related('department')
+            .select_related('department', 'supervisor__user')  # Fetch supervisor and user
             .prefetch_related('topics__tasks')
             .distinct()
             .order_by('week_number')
@@ -437,11 +438,26 @@ def get_intern_schedule_api(request, intern_id):
                     file_name = ''
                     file_url = ''
 
+            # Resolve effective coordinator name
+            coord_obj = week.effective_coordinator
+            coord_name = "Unassigned"
+            coord_id = ""
+            if coord_obj:
+                coord_id = coord_obj.id
+                if coord_obj.user:
+                    coord_name = coord_obj.user.get_full_name() or coord_obj.user.username
+                else:
+                    coord_name = f"Coordinator #{coord_obj.id}"
+
             weeks_data.append({
                 'id': week.id,
                 'week_number': week.week_number,
                 'department_id': week.department_id if week.department else '',
                 'department_name': week.department.name if week.department else 'General',
+                'coordinator_id': coord_id,
+                'coordinator_name': coord_name,
+                'supervisor_id': coord_id,
+                'supervisor_name': coord_name,
                 'start_date': str(week.start_date) if week.start_date else '',
                 'end_date': str(week.end_date) if week.end_date else '',
                 'course_outline_title': getattr(week, 'course_outline_title', '') or '',

@@ -18,10 +18,12 @@ class CoordinatorProfileAdmin(admin.ModelAdmin):
 
 @admin.register(InternProfile)
 class InternProfileAdmin(admin.ModelAdmin):
-    # Dynamic columns added to list_display
+    # Added start_date and end_date to the list view
     list_display = (
         'intern_id', 
         'full_name', 
+        'start_date',
+        'end_date',
         'get_current_week', 
         'get_days_left', 
         'get_active_coordinator',
@@ -31,7 +33,16 @@ class InternProfileAdmin(admin.ModelAdmin):
     list_filter = ('is_active', 'supervisor', 'university')
     search_fields = ('intern_id', 'full_name', 'university', 'degree', 'user__email')
 
-    # Custom methods to call the @property logic from InternProfile
+    # Explicitly group fields so start_date and end_date are easy to find and edit
+    fieldsets = (
+        ('Personal Details', {
+            'fields': ('full_name', 'user', 'intern_id', 'university', 'degree', 'supervisor', 'custom_supervisor_name')
+        }),
+        ('Internship Timeline & Status', {
+            'fields': ('start_date', 'end_date', 'is_activated', 'is_active', 'activation_token')
+        }),
+    )
+
     @admin.display(description='Current Week')
     def get_current_week(self, obj):
         return obj.current_week_display

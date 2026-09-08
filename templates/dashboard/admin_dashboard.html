@@ -446,6 +446,7 @@
         }
     }
 
+    /* Intern roster readability refinements */
     .intern-roster-card { width: 100%; }
 
     .intern-roster-card .card-header {
@@ -648,7 +649,7 @@
                         <span style="color: var(--text-dim);">{{ intern.degree }}</span>
                     </td>
 
-                    <!-- 4. ASSIGNED COORDINATOR -->
+                    <!-- 6. ASSIGNED COORDINATOR -->
                     <td class="intern-supervisor-cell">
                         {% if intern.active_coordinator != "Unassigned" %}
                         <div style="
@@ -673,7 +674,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- 5. CURRENT PROGRESS -->
+                    <!-- 4. CURRENT PROGRESS -->
                     <td>
                         <span style="
                             display: inline-flex;
@@ -690,7 +691,7 @@
                         </span>
                     </td>
 
-                    <!-- 6. TIME REMAINING -->
+                    <!-- 5. TIME REMAINING -->
                     <td style="white-space: nowrap;">
                         {% if intern.days_remaining > 0 %}
                             <strong style="font-size: 0.95rem; color: var(--text-main);">{{ intern.days_remaining }}</strong>
@@ -701,6 +702,7 @@
                             </span>
                         {% endif %}
                     </td>
+
 
                     <!-- 7. Activation Status -->
                     <td class="intern-status-cell">
@@ -1796,7 +1798,7 @@
         document.getElementById('scheduleInternPickerView').style.display = 'none';
         document.getElementById('scheduleDetailView').style.display = 'block';
         document.getElementById('scheduleDrawerTitle').textContent = 'Weekly Schedule & Course Outline';
-        document.getElementById('scheduleDrawerSubtitle').textContent = 'Manage each internship week without leaving the admin dashboard.';
+        document.getElementById('scheduleDrawerSubtitle').textContent = 'Manage each internship week.';
         document.getElementById('scheduleSelectedInternName').textContent = fullName || 'Intern';
 
         const meta = [internCode, degree, university].filter(Boolean).join(' · ');
@@ -1865,157 +1867,192 @@
         }
     }
 
-    function renderTaskItemHTML(task) {
-        return `
-            <div class="schedule-task-card" id="task-item-${task.id}" style="
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 10px 12px;
-                border-radius: 8px;
-                background: var(--bg-subtle);
-                border: 1px solid var(--border-color);
-                margin-bottom: 8px;
-            ">
-                <div style="min-width: 0; flex: 1;">
-                    <div style="font-weight: 700; color: var(--text-main); font-size: 0.88rem;">${escapeScheduleHtml(task.title)}</div>
-                    <div style="color: var(--text-muted); font-size: 0.78rem;">${escapeScheduleHtml(task.description || '')}</div>
-                </div>
-                
-                <button type="button" 
-                        onclick="deleteScheduleTask(${task.id})" 
-                        class="icon-btn icon-btn-danger" 
-                        title="Delete Task"
-                        style="margin-left: 10px; flex-shrink: 0;">
-                    <i class="fa-solid fa-trash-can"></i>
-                </button>
-            </div>
-        `;
-    }
-
     function renderScheduleWeek(week) {
-        const container = document.getElementById('scheduleWeeksContainer');
-        document.getElementById('scheduleEmptyState').style.display = 'none';
+    const container = document.getElementById('scheduleWeeksContainer');
+    document.getElementById('scheduleEmptyState').style.display = 'none';
 
-        const key = week.id ? `saved-${week.id}` : `new-${++scheduleNewWeekCounter}`;
-        const wrapper = document.createElement('section');
-        wrapper.id = `schedule-week-${key}`;
-        wrapper.dataset.weekId = week.id || '';
-        wrapper.className = 'schedule-week-card';
+    const key = week.id ? `saved-${week.id}` : `new-${++scheduleNewWeekCounter}`;
+    const wrapper = document.createElement('section');
+    wrapper.id = `schedule-week-${key}`;
+    wrapper.dataset.weekId = week.id || '';
+    wrapper.className = 'schedule-week-card';
 
-        const departmentOptions = `
-            <option value="">Select Department</option>
-            {% for dept in departments %}
-            <option value="{{ dept.id }}" ${String(week.department_id || '') === '{{ dept.id }}' ? 'selected' : ''}>{{ dept.name|escapejs }}</option>
-            {% endfor %}
-        `;
+    const departmentOptions = `
+        <option value="">Select Department</option>
+        {% for dept in departments %}
+        <option value="{{ dept.id }}" ${String(week.department_id || '') === '{{ dept.id }}' ? 'selected' : ''}>{{ dept.name|escapejs }}</option>
+        {% endfor %}
+    `;
 
-        const templateSelect = document.getElementById('weeklyCoordinatorOptionsTemplate');
-        const tempSelect = document.createElement('select');
+    const templateSelect = document.getElementById('weeklyCoordinatorOptionsTemplate');
+    const tempSelect = document.createElement('select');
 
-        if (templateSelect) {
-            tempSelect.innerHTML = templateSelect.innerHTML;
-            if (week.supervisor_id) {
-                const optionToSelect = tempSelect.querySelector(`option[value="${week.supervisor_id}"]`);
-                if (optionToSelect) {
-                    optionToSelect.setAttribute('selected', 'selected');
-                }
+    if (templateSelect) {
+        tempSelect.innerHTML = templateSelect.innerHTML;
+        if (week.supervisor_id) {
+            const optionToSelect = tempSelect.querySelector(`option[value="${week.supervisor_id}"]`);
+            if (optionToSelect) {
+                optionToSelect.setAttribute('selected', 'selected');
             }
         }
-        const coordinatorOptions = tempSelect.innerHTML;
+    }
+    const coordinatorOptions = tempSelect.innerHTML;
 
-        const fileName = week.course_outline_file_name || '';
-        const fileUrl = week.course_outline_file_url || '';
+    const fileName = week.course_outline_file_name || '';
+    const fileUrl = week.course_outline_file_url || '';
 
-        const deleteButton = week.id
-            ? `<button type="button" class="schedule-delete-week" onclick="deleteScheduleWeek(${week.id}, '${key}', ${activeScheduleInternId})"><i class="fa-solid fa-trash-can"></i> Delete Week</button>`
-            : `<button type="button" class="schedule-delete-week" onclick="removeUnsavedScheduleWeek('${key}')"><i class="fa-solid fa-xmark"></i> Remove</button>`;
+    // Lock/Unlock Control for existing saved weeks
+    const lockButton = week.id
+        ? `<button type="button" class="btn btn-outline" id="lock_btn_${week.id}" onclick="toggleWeekLockInDrawer(${week.id})" 
+                style="height: 30px; padding: 0 10px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+                <i class="fa-solid ${week.is_locked ? 'fa-lock-open' : 'fa-lock'}"></i>
+                <span id="lock_text_${week.id}">${week.is_locked ? 'Unlock Week' : 'Lock Week'}</span>
+           </button>`
+        : '';
 
-        const currentFile = fileName
-            ? `<div class="schedule-current-file">Current file: ${fileUrl ? `<a href="${escapeScheduleHtml(fileUrl)}" target="_blank" rel="noopener" style="color:var(--primary);">${escapeScheduleHtml(fileName)}</a>` : `<strong>${escapeScheduleHtml(fileName)}</strong>`}</div>`
-            : '';
-
-        // Render tasks inside week
-        let tasksListHTML = '';
-        if (week.tasks && week.tasks.length > 0) {
-            tasksListHTML = `
-                <div class="schedule-field" style="margin-top: 14px;">
-                    <label class="schedule-label">ASSIGNED TASKS</label>
-                    <div class="tasks-list">
-                        ${week.tasks.map(task => renderTaskItemHTML(task)).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        wrapper.innerHTML = `
-            <div class="schedule-week-head">
-                <strong>Week ${escapeScheduleHtml(week.week_number || '')}</strong>
-                ${deleteButton}
-            </div>
-
-            <div class="schedule-week-content">
-                <div class="schedule-field">
-                    <label class="schedule-label">Week Number *</label>
-                    <input type="number" min="1" class="form-control schedule-week-number" value="${escapeScheduleHtml(week.week_number || '')}" required>
-                </div>
-
-                <div class="schedule-field">
-                    <label class="schedule-label">Department *</label>
-                    <select class="form-control schedule-department" required>${departmentOptions}</select>
-                </div>
-
-                <div class="schedule-field">
-                    <label class="schedule-label">Weekly Coordinator *</label>
-                    <select class="form-control schedule-coordinator" required>${coordinatorOptions}</select>
-                </div>
-
-                <div class="schedule-date-grid">
-                    <div class="schedule-field">
-                        <label class="schedule-label">Start Date *</label>
-                        <input type="date" class="form-control schedule-start-date" value="${escapeScheduleHtml(week.start_date || '')}" required>
-                    </div>
-                    <div class="schedule-field">
-                        <label class="schedule-label">End Date *</label>
-                        <input type="date" class="form-control schedule-end-date" value="${escapeScheduleHtml(week.end_date || '')}" required>
-                    </div>
-                </div>
-
-                ${tasksListHTML}
-
-                <div class="schedule-outline-block">
-                    <div class="schedule-outline-heading">COURSE OUTLINE</div>
-
-                    <div class="schedule-field">
-                        <label class="schedule-label">Outline Title</label>
-                        <input type="text" maxlength="200" class="form-control schedule-outline-title" value="${escapeScheduleHtml(week.course_outline_title || '')}" placeholder="e.g. IT Operations Internship Training">
-                    </div>
-
-                    <div class="schedule-field">
-                        <label class="schedule-label">Type / Paste Course Outline</label>
-                        <textarea rows="7" class="form-control schedule-outline-text" placeholder="Enter the course outline here...">${escapeScheduleHtml(week.course_outline_text || '')}</textarea>
-                    </div>
-
-                    <div class="schedule-field">
-                        <label class="schedule-label">Upload Course Outline (PDF/DOC/DOCX)</label>
-                        ${currentFile}
-                        <input type="file" class="form-control schedule-outline-file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-                    </div>
-                </div>
-
-                <div class="schedule-card-actions">
-                    <button type="button" class="btn schedule-save-week" onclick="saveScheduleWeek('${key}')">
-                        <i class="fa-solid fa-floppy-disk"></i> Save Week
-                    </button>
-                </div>
-
-                <div class="schedule-week-message"></div>
-            </div>
-        `;
-
-        container.appendChild(wrapper);
+    // Dynamic Badge: Only shows "Current Week" if week.is_current is true, or "Locked" if locked
+    let lockBadge = '';
+    if (week.is_locked) {
+        lockBadge = `<span class="badge" id="lock_badge_${week.id}" style="background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); padding: 3px 8px; font-size: 0.72rem; border-radius: 6px;">🔒 Locked</span>`;
+    } else if (week.is_current) {
+        lockBadge = `<span class="badge" id="lock_badge_${week.id}" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); padding: 3px 8px; font-size: 0.72rem; border-radius: 6px;">Current Week</span>`;
     }
 
+    const deleteButton = week.id
+        ? `<button type="button" class="schedule-delete-week" onclick="deleteScheduleWeek(${week.id}, '${key}', ${activeScheduleInternId})"><i class="fa-solid fa-trash-can"></i> Delete Week</button>`
+        : `<button type="button" class="schedule-delete-week" onclick="removeUnsavedScheduleWeek('${key}')"><i class="fa-solid fa-xmark"></i> Remove</button>`;
+
+    const currentFile = fileName
+        ? `<div class="schedule-current-file">Current file: ${fileUrl ? `<a href="${escapeScheduleHtml(fileUrl)}" target="_blank" rel="noopener" style="color:var(--primary);">${escapeScheduleHtml(fileName)}</a>` : `<strong>${escapeScheduleHtml(fileName)}</strong>`}</div>`
+        : '';
+
+    wrapper.innerHTML = `
+        <div class="schedule-week-head" style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <strong>Week ${escapeScheduleHtml(week.week_number || '')}</strong>
+                ${week.id ? lockBadge : ''}
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                ${lockButton}
+                ${deleteButton}
+            </div>
+        </div>
+
+        <div class="schedule-week-content">
+            <div class="schedule-field">
+                <label class="schedule-label">Week Number *</label>
+                <input type="number" min="1" class="form-control schedule-week-number" value="${escapeScheduleHtml(week.week_number || '')}" required>
+            </div>
+
+            <div class="schedule-field">
+                <label class="schedule-label">Department *</label>
+                <select class="form-control schedule-department" required>${departmentOptions}</select>
+            </div>
+
+            <div class="schedule-field">
+                <label class="schedule-label">Weekly Coordinator *</label>
+                <select class="form-control schedule-coordinator" required>${coordinatorOptions}</select>
+            </div>
+
+            <div class="schedule-date-grid">
+                <div class="schedule-field">
+                    <label class="schedule-label">Start Date *</label>
+                    <input type="date" class="form-control schedule-start-date" value="${escapeScheduleHtml(week.start_date || '')}" required>
+                </div>
+                <div class="schedule-field">
+                    <label class="schedule-label">End Date *</label>
+                    <input type="date" class="form-control schedule-end-date" value="${escapeScheduleHtml(week.end_date || '')}" required>
+                </div>
+            </div>
+
+            <div class="schedule-outline-block">
+                <div class="schedule-outline-heading">COURSE OUTLINE</div>
+
+                <div class="schedule-field">
+                    <label class="schedule-label">Outline Title</label>
+                    <input type="text" maxlength="200" class="form-control schedule-outline-title" value="${escapeScheduleHtml(week.course_outline_title || '')}" placeholder="e.g. IT Operations Internship Training">
+                </div>
+
+                <div class="schedule-field">
+                    <label class="schedule-label">Type / Paste Course Outline</label>
+                    <textarea rows="7" class="form-control schedule-outline-text" placeholder="Enter the course outline here...">${escapeScheduleHtml(week.course_outline_text || '')}</textarea>
+                </div>
+
+                <div class="schedule-field">
+                    <label class="schedule-label">Upload Course Outline (PDF/DOC/DOCX)</label>
+                    ${currentFile}
+                    <input type="file" class="form-control schedule-outline-file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                </div>
+            </div>
+
+            <div class="schedule-card-actions">
+                <button type="button" class="btn schedule-save-week" onclick="saveScheduleWeek('${key}')">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Week
+                </button>
+            </div>
+
+            <div class="schedule-week-message"></div>
+        </div>
+    `;
+
+    container.appendChild(wrapper);
+}
+
+async function toggleWeekLockInDrawer(weekId) {
+    const btn = document.getElementById(`lock_btn_${weekId}`);
+    if (btn) btn.disabled = true;
+
+    // Use direct URL pattern matching your urls.py route
+    const targetUrl = `/intern/week/${weekId}/toggle-lock/`;
+
+    try {
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCurrentCsrfToken(),
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error(`Server returned HTTP ${response.status}. Please check route mapping in urls.py.`);
+        }
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to toggle week lock status.');
+        }
+
+        showToast(data.message, 'success');
+
+        const textSpan = document.getElementById(`lock_text_${weekId}`);
+        const badge = document.getElementById(`lock_badge_${weekId}`);
+        const icon = btn ? btn.querySelector('i') : null;
+
+        if (data.is_locked) {
+            if (textSpan) textSpan.innerText = 'Unlock Week';
+            if (icon) icon.className = 'fa-solid fa-lock-open';
+            if (badge) {
+                badge.innerText = '🔒 Locked';
+                badge.style.background = 'rgba(100, 116, 139, 0.2)';
+                badge.style.color = '#94a3b8';
+                badge.style.border = '1px solid rgba(100, 116, 139, 0.3)';
+                badge.style.display = 'inline-block';
+            }
+        } else {
+            if (textSpan) textSpan.innerText = 'Lock Week';
+            if (icon) icon.className = 'fa-solid fa-lock';
+            if (badge) {
+                badge.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        showToast(error.message || 'Network error or route missing.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
     function addScheduleWeek() {
         if (!activeScheduleInternId) {
             showToast('Select an intern first.', 'error');
@@ -2178,69 +2215,96 @@
             }
         });
     }
-
     // --- 1. Message Deletion Handler ---
-    async function deleteChatMessage(messageId) {
-        showConfirmModal({
-            variant: 'danger',
-            title: 'Delete Message',
-            message: 'Are you sure you want to delete this message? This action cannot be undone.',
-            confirmLabel: 'Delete',
-            onConfirm: async () => {
-                try {
-                    const response = await fetch(`/message/${messageId}/delete/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCurrentCsrfToken(),
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        }
-                    });
-
-                    const data = await response.json();
-                    if (data.success) {
-                        const msgElement = document.getElementById(`msg-bubble-${messageId}`);
-                        if (msgElement) msgElement.remove();
-                        showToast('Message deleted successfully.', 'success');
-                    } else {
-                        showToast(data.error || 'Failed to delete message.', 'error');
+async function deleteChatMessage(messageId) {
+    showConfirmModal({
+        variant: 'danger',
+        title: 'Delete Message',
+        message: 'Are you sure you want to delete this message? This action cannot be undone.',
+        confirmLabel: 'Delete',
+        onConfirm: async () => {
+            try {
+                const response = await fetch(`/message/${messageId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCurrentCsrfToken(),
+                        'Content-Type': 'application/x-www-form-urlencoded'
                     }
-                } catch (err) {
-                    showToast('Server error while deleting message.', 'error');
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    const msgElement = document.getElementById(`msg-bubble-${messageId}`);
+                    if (msgElement) msgElement.remove();
+                    showToast('Message deleted successfully.', 'success');
+                } else {
+                    showToast(data.error || 'Failed to delete message.', 'error');
                 }
+            } catch (err) {
+                showToast('Server error while deleting message.', 'error');
             }
-        });
-    }
+        }
+    });
+}
 
-    // --- 2. Task / Day Item Deletion Handler ---
-    async function deleteScheduleTask(taskId) {
-        showConfirmModal({
-            variant: 'danger',
-            title: 'Delete Task',
-            message: 'Are you sure you want to delete this task from the intern schedule?',
-            confirmLabel: 'Delete Task',
-            onConfirm: async () => {
-                try {
-                    const response = await fetch(`/task/${taskId}/delete/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCurrentCsrfToken(),
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        }
-                    });
-
-                    const data = await response.json();
-                    if (data.success) {
-                        const taskCard = document.getElementById(`task-item-${taskId}`);
-                        if (taskCard) taskCard.remove();
-                        showToast('Task deleted successfully.', 'success');
-                    } else {
-                        showToast(data.error || 'Failed to delete task.', 'error');
+// --- 2. Task / Day Item Deletion Handler ---
+async function deleteScheduleTask(taskId) {
+    showConfirmModal({
+        variant: 'danger',
+        title: 'Delete Task',
+        message: 'Are you sure you want to delete this task from the intern schedule?',
+        confirmLabel: 'Delete Task',
+        onConfirm: async () => {
+            try {
+                const response = await fetch(`/task/${taskId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCurrentCsrfToken(),
+                        'Content-Type': 'application/x-www-form-urlencoded'
                     }
-                } catch (err) {
-                    showToast('Server error while deleting task.', 'error');
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    const taskCard = document.getElementById(`task-item-${taskId}`);
+                    if (taskCard) taskCard.remove();
+                    showToast('Task deleted successfully.', 'success');
+                } else {
+                    showToast(data.error || 'Failed to delete task.', 'error');
                 }
+            } catch (err) {
+                showToast('Server error while deleting task.', 'error');
             }
-        });
-    }
+        }
+    });
+    // Inside renderScheduleWeek(week) function when looping through tasks:
+function renderTaskItemHTML(task) {
+    return `
+        <div class="schedule-task-card" id="task-item-${task.id}" style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+        ">
+            <div style="min-width: 0; flex: 1;">
+                <div style="font-weight: 700; color: var(--text-main); font-size: 0.88rem;">${escapeScheduleHtml(task.title)}</div>
+                <div style="color: var(--text-muted); font-size: 0.78rem;">${escapeScheduleHtml(task.description || '')}</div>
+            </div>
+            
+            <button type="button" 
+                    onclick="deleteScheduleTask(${task.id})" 
+                    class="icon-btn icon-btn-danger" 
+                    title="Delete Task"
+                    style="margin-left: 10px; flex-shrink: 0;">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    `;
+}
+}
 </script>
 {% endblock %}

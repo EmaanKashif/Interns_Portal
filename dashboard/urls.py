@@ -28,17 +28,18 @@ urlpatterns = [
     path('intern/<int:intern_id>/schedule/', views.get_intern_schedule_api, name='get_intern_schedule'),
     path('intern/<int:intern_id>/schedule/week/save/', views.save_intern_schedule_week_api, name='save_intern_schedule_week'),
     path('intern/<int:intern_id>/schedule/week/<int:week_id>/delete/', views.delete_intern_schedule_week_api, name='delete_intern_schedule_week'),
+    path('intern/week/<int:week_id>/toggle-lock/', views.toggle_week_lock, name='toggle_week_lock'),
 
     # Task Management APIs
     path('intern/week/<int:week_id>/add-day/', views.intern_add_day_api, name='intern_add_day_api'),
     path('intern/task/<int:task_id>/edit/', views.intern_edit_task_api, name='intern_edit_task_api'),
     path('task/<int:task_id>/update_status/', views.update_task_status, name='update_task_status'),
     path('task/<int:task_id>/update/', views.update_task_api, name='update_task_api'),
-    path('task/<int:task_id>/delete/', views.delete_task_api, name='delete_task'),
+    path('task/<int:task_id>/delete/', views.delete_task_api, name='delete_task_api'),
 
     # Communication & Notification APIs
-    path('messages/send/', views.send_message_api, name='send_message_api'),
-    path('messages/thread/', views.get_messages_api, name='get_messages_api'),
+    path('get-messages/', views.get_messages_api, name='get_messages_api'),
+    path('send-message/', views.send_message_api, name='send_message_api'),
     path('message/<int:message_id>/delete/', views.delete_message_api, name='delete_message'),
     path('notifications/', views.get_notifications_api, name='get_notifications_api'),
     path('notifications/<int:notification_id>/read/', views.mark_notification_read_api, name='mark_notification_read_api'),

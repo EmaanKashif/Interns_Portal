@@ -8,6 +8,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.db import transaction
+from django.contrib.auth import get_user_model
+from zoneinfo import ZoneInfo
+
 
 from academics.models import DailyTask, Department, InternshipWeek, TaskSubmission, Topic, DepartmentAssignment
 from academics.views import calculate_intern_progress
@@ -15,6 +18,7 @@ from accounts.decorators import role_required
 from accounts.models import InternProfile, CoordinatorProfile, User
 from .models import Message, Notification
 
+User = get_user_model()
 
 def _can_manage_schedules(user):
     """Return True for portal admins, coordinators, staff, and superusers."""
@@ -144,26 +148,30 @@ def admin_dashboard(request):
         'departments': departments,
     }
     return render(request, 'dashboard/admin_dashboard.html', context)
-
-
-@role_required('intern')
 @login_required
+@role_required('intern')
 def intern_dashboard(request):
     profile = getattr(request.user, 'intern_profile', None)
     if not profile:
         return redirect('login')
 
-    # FIX: Strictly query InternshipWeek for THIS intern first to prevent cross-intern duplication
+    # Safely fetch the primary system admin
+    admin_user = (
+        User.objects.filter(is_superuser=True).first() 
+        or User.objects.filter(role=getattr(User, 'ROLE_ADMIN', 'admin')).first()
+    )
+
+    # Fetch InternshipWeek objects attached to THIS intern profile
     all_weeks = (
         InternshipWeek.objects
         .filter(intern=profile)
-        .select_related('department', 'supervisor')
+        .select_related('department', 'supervisor__user')
         .prefetch_related('topics__tasks')
         .distinct()
         .order_by('week_number')
     )
 
-    # Fallback if weeks are not yet directly attached to profile
+    # Fallback to department assignments if direct weeks are unassigned
     if not all_weeks.exists():
         assignments = DepartmentAssignment.objects.filter(intern=profile)
         assigned_dept_ids = assignments.values_list('department_id', flat=True).distinct()
@@ -172,7 +180,7 @@ def intern_dashboard(request):
             all_weeks = (
                 InternshipWeek.objects
                 .filter(department_id__in=assigned_dept_ids)
-                .select_related('department', 'supervisor')
+                .select_related('department', 'supervisor__user')
                 .prefetch_related('topics__tasks')
                 .distinct()
                 .order_by('week_number')
@@ -182,31 +190,73 @@ def intern_dashboard(request):
 
     progress_data = calculate_intern_progress(profile)
 
+    # Task metrics for header cards
     user_tasks = DailyTask.objects.filter(intern=profile)
+    total_tasks_count = user_tasks.count()
     completed_tasks = user_tasks.filter(status='completed').count()
     in_progress_tasks = user_tasks.filter(status='in_progress').count()
     pending_tasks = user_tasks.filter(status__in=['not_started', 'submitted', 'pending']).count()
+    overall_progress_pct = round((completed_tasks / total_tasks_count) * 100, 1) if total_tasks_count > 0 else 0
 
+    # Calculate progress per week safely without re-assigning model properties
     for week in all_weeks:
         week_tasks = DailyTask.objects.filter(topic__week=week, intern=profile)
         w_total = week_tasks.count()
         w_completed = week_tasks.filter(status='completed').count()
+        
+        # Attach dictionary data dynamically
         week.progress = {
             'total': w_total,
             'completed': w_completed,
             'pct': round((w_completed / w_total) * 100) if w_total > 0 else 0,
         }
-        week.coordinator = getattr(week, 'effective_coordinator', None) or getattr(week, 'supervisor', None)
+
+        # Attach the list of submitted files to each task so the template
+        # can show a clean "View" action instead of a raw filename line,
+        # and support interns attaching more than one file per task.
+        for topic in week.topics.all():
+            for task in topic.tasks.all():
+                submitted_files = []
+
+                # Preferred path: a TaskSubmission per uploaded file, so an
+                # intern can attach multiple files to the same task.
+                submissions_related = getattr(task, 'submissions', None)
+                if submissions_related is not None:
+                    try:
+                        for submission in submissions_related.all():
+                            sub_file = (
+                                getattr(submission, 'file', None)
+                                or getattr(submission, 'attached_file', None)
+                            )
+                            if sub_file:
+                                submitted_files.append({
+                                    'name': os.path.basename(sub_file.name),
+                                    'url': sub_file.url,
+                                })
+                    except Exception:
+                        submitted_files = []
+
+                # Fallback: legacy single `attached_file` field on the task.
+                if not submitted_files and getattr(task, 'attached_file', None):
+                    submitted_files.append({
+                        'name': os.path.basename(task.attached_file.name),
+                        'url': task.attached_file.url,
+                    })
+
+                task.submitted_files = submitted_files
+                task.submitted_file_name = submitted_files[0]['name'] if submitted_files else ''
 
     context = {
         'profile': profile,
+        'admin_user': admin_user,
         'all_weeks': all_weeks,
         'weeks': all_weeks,
         'progress_data': progress_data,
-        'progress_pct': progress_data['overall'],
+        'progress_pct': overall_progress_pct,
         'completed_tasks': completed_tasks,
         'in_progress_tasks': in_progress_tasks,
         'pending_tasks': pending_tasks,
+        'total_tasks_count': total_tasks_count,
     }
 
     return render(request, 'dashboard/intern_dashboard.html', context)
@@ -391,11 +441,12 @@ def get_intern_schedule_api(request, intern_id):
             return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
         intern = get_object_or_404(InternProfile, id=intern_id, is_active=True)
+        today = timezone.now().date()
 
         weeks = (
             InternshipWeek.objects
             .filter(intern=intern)
-            .select_related('department', 'supervisor__user')  # Fetch supervisor and user
+            .select_related('department', 'supervisor__user')
             .prefetch_related('topics__tasks')
             .distinct()
             .order_by('week_number')
@@ -444,10 +495,13 @@ def get_intern_schedule_api(request, intern_id):
             coord_id = ""
             if coord_obj:
                 coord_id = coord_obj.id
-                if coord_obj.user:
+                if getattr(coord_obj, 'user', None):
                     coord_name = coord_obj.user.get_full_name() or coord_obj.user.username
                 else:
                     coord_name = f"Coordinator #{coord_obj.id}"
+
+            # Calculate if today's date falls between start_date and end_date
+            is_current = bool(week.start_date and week.end_date and week.start_date <= today <= week.end_date)
 
             weeks_data.append({
                 'id': week.id,
@@ -460,6 +514,8 @@ def get_intern_schedule_api(request, intern_id):
                 'supervisor_name': coord_name,
                 'start_date': str(week.start_date) if week.start_date else '',
                 'end_date': str(week.end_date) if week.end_date else '',
+                'is_locked': getattr(week, 'is_locked', False),
+                'is_current': is_current,  # Exposes active status to JS
                 'course_outline_title': getattr(week, 'course_outline_title', '') or '',
                 'course_outline_text': getattr(week, 'course_outline_text', '') or '',
                 'course_outline_file_name': file_name,
@@ -722,8 +778,13 @@ def intern_add_day_api(request, week_id):
             title=task_title,
             description=request.POST.get('description', '').strip(),
             date=task_date,
-            status=getattr(DailyTask, 'STATUS_PENDING', 'pending')
+            status='not_started',
         )
+
+        # Return updated stats too, so the frontend can update the header
+        # cards and this week's progress badge in place — no full reload.
+        overall_stats = _compute_task_stats(DailyTask.objects.filter(intern=intern))
+        week_stats = _compute_task_stats(DailyTask.objects.filter(topic__week=week, intern=intern))
 
         return JsonResponse({
             'success': True,
@@ -734,7 +795,17 @@ def intern_add_day_api(request, week_id):
                 'description': task.description,
                 'date': str(task.date),
                 'status': task.status,
-            }
+                'week_id': week.id,
+            },
+            'total_tasks': overall_stats['total'],
+            'completed_tasks': overall_stats['completed'],
+            'in_progress_tasks': overall_stats['in_progress'],
+            'pending_tasks': overall_stats['pending'],
+            'progress_pct': overall_stats['pct'],
+            'week_id': week.id,
+            'week_total_tasks': week_stats['total'],
+            'week_completed_tasks': week_stats['completed'],
+            'week_progress_pct': week_stats['pct'],
         })
 
     except Exception as exc:
@@ -810,6 +881,14 @@ def update_task_api(request, task_id):
 
     task.save()
     return JsonResponse({'success': True, 'title': task.title, 'description': task.description, 'due_date': str(task.due_date) if task.due_date else None})
+
+@login_required
+def delete_task_api(request, task_id):
+    if request.method == 'POST':
+        task = get_object_or_404(Task, id=task_id)
+        task.delete()
+        return JsonResponse({'success': True, 'message': 'Task deleted successfully.'})
+    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=400)
 
 
 @login_required
@@ -976,112 +1055,78 @@ def create_department_api(request):
 
 
 @login_required
-@require_POST
 def send_message_api(request):
-    """API for Interns and Coordinators to communicate."""
-    user = request.user
-    recipient_id = request.POST.get('recipient_id')
-    content = request.POST.get('content', '').strip()
-    task_id = request.POST.get('task_id')
+    """Handles sending a direct message to another user."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
 
-    if not recipient_id or not content:
-        return JsonResponse({'success': False, 'error': 'Recipient and message content are required.'}, status=400)
+    try:
+        recipient_id = request.POST.get('recipient_id')
+        content = request.POST.get('content', '').strip()
 
-    recipient = get_object_or_404(User, pk=recipient_id)
+        if not recipient_id or not content:
+            return JsonResponse({'success': False, 'error': 'Recipient and content are required.'}, status=400)
 
-    allowed = False
-    if user.role == User.ROLE_INTERN:
-        intern_profile = getattr(user, 'intern_profile', None)
-        if intern_profile and intern_profile.supervisor and intern_profile.supervisor.user == recipient:
-            allowed = True
-    elif user.role == User.ROLE_COORDINATOR:
-        coord_profile = getattr(user, 'coordinator_profile', None)
-        if coord_profile:
-            intern_recipient_profile = getattr(recipient, 'intern_profile', None)
-            if intern_recipient_profile and intern_recipient_profile.supervisor == coord_profile:
-                allowed = True
-    elif user.role == User.ROLE_ADMIN or user.is_superuser:
-        allowed = True
+        recipient = get_object_or_404(User, id=recipient_id)
 
-    if not allowed:
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+        # FIX: Use 'Message' instead of 'DirectMessage'
+        message = Message.objects.create(
+            sender=request.user,
+            recipient=recipient,
+            content=content
+        )
 
-    task = DailyTask.objects.filter(pk=task_id).first() if task_id else None
+        return JsonResponse({
+            'success': True,
+            'message_id': message.id,
+            'message': 'Message sent successfully.'
+        })
 
-    msg = Message.objects.create(sender=user, recipient=recipient, content=content, task=task)
-
-    Notification.objects.create(
-        recipient=recipient,
-        sender=user,
-        title=f"New Message from {user.get_full_name() or user.username}",
-        message=content[:100] + ('...' if len(content) > 100 else ''),
-        link=(
-            f"/coordinator/?chat={user.id}"
-            if recipient.role == User.ROLE_COORDINATOR
-            else f"/intern/?chat={user.id}"
-        ),
-        notification_type=Notification.TYPE_MESSAGE
-    )
-
-    return JsonResponse({
-        'success': True,
-        'message_id': msg.id,
-        'sender': user.get_full_name() or user.username,
-        'content': msg.content,
-        'created_at': msg.created_at.strftime('%b %d, %H:%M')
-    })
-
+    except Exception as exc:
+        print("SEND MESSAGE API ERROR:", str(exc))
+        return JsonResponse({'success': False, 'error': f'Server Error: {str(exc)}'}, status=500)
 
 @login_required
 def get_messages_api(request):
-    """API returning conversation history."""
-    target_user_id = request.GET.get('target_user_id')
-    if not target_user_id:
-        return JsonResponse({'success': False, 'error': 'Target user required.'}, status=400)
+    """Retrieves strictly isolated direct messages converted to Asia/Karachi time."""
+    try:
+        target_user_id = request.GET.get('target_user_id')
+        if not target_user_id or target_user_id == 'undefined':
+            return JsonResponse({'success': False, 'error': 'Valid user ID required.'}, status=400)
 
-    target_user = get_object_or_404(User, pk=target_user_id)
-    user = request.user
+        target_user = get_object_or_404(User, id=target_user_id)
 
-    allowed = False
-    if user.role == User.ROLE_INTERN:
-        intern_profile = getattr(user, 'intern_profile', None)
-        if intern_profile and intern_profile.supervisor and intern_profile.supervisor.user == target_user:
-            allowed = True
-    elif user.role == User.ROLE_COORDINATOR:
-        coord_profile = getattr(user, 'coordinator_profile', None)
-        if coord_profile:
-            target_intern_profile = getattr(target_user, 'intern_profile', None)
-            if target_intern_profile and target_intern_profile.supervisor == coord_profile:
-                allowed = True
-    elif user.role == User.ROLE_ADMIN or user.is_superuser:
-        allowed = True
+        # STRICT ISOLATION: Retrieve messages ONLY between request.user and target_user
+        messages = Message.objects.filter(
+            Q(sender=request.user, recipient=target_user) |
+            Q(sender=target_user, recipient=request.user)
+        ).order_by('created_at')
 
-    if not allowed:
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+        # Mark unread messages as read
+        Message.objects.filter(sender=target_user, recipient=request.user, is_read=False).update(is_read=True)
 
-    messages_qs = Message.objects.filter(
-        (Q(sender=user, recipient=target_user) | Q(sender=target_user, recipient=user))
-    ).order_by('created_at')
+        # Set local time zone for Faisalabad / Pakistan
+        karachi_tz = pytz.timezone('Asia/Karachi')
 
-    Message.objects.filter(sender=target_user, recipient=user, is_read=False).update(is_read=True)
+        messages_data = []
+        for msg in messages:
+            # Convert UTC timestamp to Asia/Karachi local time
+            local_created_at = msg.created_at.astimezone(karachi_tz) if msg.created_at else timezone.now().astimezone(karachi_tz)
 
-    messages_data = []
-    for m in messages_qs:
-        messages_data.append({
-            'id': m.id,
-            'sender_id': m.sender.id,
-            'sender_name': m.sender.get_full_name() or m.sender.username,
-            'is_me': m.sender == user,
-            'content': m.content,
-            'created_at': m.created_at.strftime('%b %d, %I:%M %p')
-        })
+            messages_data.append({
+                'id': msg.id,
+                'sender_id': msg.sender_id,
+                'sender_name': msg.sender.get_full_name() or msg.sender.username,
+                'content': msg.content,
+                'is_me': msg.sender_id == request.user.id,
+                'created_at': local_created_at.strftime('%b %d, %I:%M %p'),
+            })
 
-    return JsonResponse({
-        'success': True,
-        'target_user_name': target_user.get_full_name() or target_user.username,
-        'messages': messages_data
-    })
+        return JsonResponse({'success': True, 'messages': messages_data})
 
+    except Exception as exc:
+        print("GET MESSAGES API ERROR:", str(exc))
+        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
 
 @login_required
 def get_notifications_api(request):
@@ -1221,6 +1266,29 @@ def update_task_status(request, task_id):
         print("UPDATE TASK STATUS ERROR:", str(exc))
         return JsonResponse({'success': False, 'error': f'Server Error: {str(exc)}'}, status=500)
 
+@login_required
+def toggle_week_lock(request, week_id):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid method.'}, status=405)
+
+    is_admin = request.user.is_staff or request.user.is_superuser or getattr(request.user, 'role', '') == 'admin'
+    if not is_admin:
+        return JsonResponse({'success': False, 'error': 'Unauthorized: Admin access required.'}, status=403)
+
+    try:
+        week = get_object_or_404(InternshipWeek, id=week_id)
+        # Toggle override relative to current lock state
+        current_state = week.is_locked
+        week.admin_lock_override = not current_state
+        week.save()
+
+        return JsonResponse({
+            'success': True,
+            'is_locked': week.is_locked,
+            'message': f"Week {week.week_number} {'locked' if week.is_locked else 'unlocked'} by admin."
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
 def intern_detail_api(request, intern_id):
@@ -1334,37 +1402,44 @@ def intern_detail_api(request, intern_id):
 @require_POST
 def delete_message_api(request, message_id):
     """Allows sender or Admin to delete a message."""
-    msg = get_object_or_404(Message, pk=message_id)
+    try:
+        msg = get_object_or_404(Message, pk=message_id)
 
-    if msg.sender != request.user and request.user.role != User.ROLE_ADMIN and not request.user.is_superuser:
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+        # Check permissions
+        if msg.sender != request.user and request.user.role != User.ROLE_ADMIN and not request.user.is_superuser:
+            return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-    msg.delete()
-    return JsonResponse({'success': True, 'message': 'Message deleted successfully.'})
+        msg.delete()
+        return JsonResponse({'success': True, 'message': 'Message deleted successfully.'})
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': f'Server error: {str(exc)}'}, status=500)
 
 
 @login_required
 @require_POST
 def delete_task_api(request, task_id):
-    """Allows Intern, Coordinator, or Admin to delete a daily task."""
-    task = get_object_or_404(DailyTask, pk=task_id)
-    user = request.user
+    """Deletes a task safely via URL path parameter."""
+    try:
+        task = get_object_or_404(DailyTask, pk=task_id)
+        user = request.user
 
-    owning_intern = task.intern or (task.topic.week.intern if task.topic and task.topic.week else None)
-    coord_profile = getattr(user, 'coordinator_profile', None)
+        intern_profile = getattr(user, 'intern_profile', None)
+        coord_profile = getattr(user, 'coordinator_profile', None)
 
-    allowed = False
-    if getattr(user, 'intern_profile', None) and owning_intern == user.intern_profile:
-        allowed = True
-    elif coord_profile and owning_intern and owning_intern.supervisor == coord_profile:
-        allowed = True
-    elif user.is_staff or user.is_superuser or user.role == User.ROLE_ADMIN:
-        allowed = True
+        allowed = False
+        if intern_profile and task.intern == intern_profile:
+            allowed = True
+        elif coord_profile and task.intern and task.intern.supervisor == coord_profile:
+            allowed = True
+        elif user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin':
+            allowed = True
 
-    if not allowed:
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+        if not allowed:
+            return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-    task_id_ref = task.id
-    task.delete()
+        task.delete()
+        return JsonResponse({'success': True, 'message': 'Task deleted successfully.'})
 
-    return JsonResponse({'success': True, 'message': 'Task deleted successfully.', 'task_id': task_id_ref})
+    except Exception as exc:
+        print("DELETE TASK ERROR:", str(exc))
+        return JsonResponse({'success': False, 'error': f'Server Error: {str(exc)}'}, status=500)

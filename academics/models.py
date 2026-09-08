@@ -80,6 +80,9 @@ class InternshipWeek(models.Model):
     course_outline_title = models.CharField(max_length=200, blank=True, null=True, default='')
     course_outline_text = models.TextField(blank=True, null=True, default='')
     
+    # Explicit admin override: None = auto-detect by end_date, True = force locked, False = force unlocked
+    is_locked_override = models.BooleanField(null=True, blank=True, default=None)
+
     # Direct Supabase Storage attachment
     course_outline_file = models.FileField(
         upload_to='outlines/', 
@@ -96,18 +99,26 @@ class InternshipWeek(models.Model):
         return f"Week {self.week_number} - {dept_name}"
 
     @property
+    def is_past_deadline(self):
+        return timezone.now().date() > self.end_date if self.end_date else False
+
+    @property
     def is_locked(self):
-        return timezone.now().date() > self.end_date
+        # 1. If admin explicitly toggled a status, respect the override
+        if self.is_locked_override is not None:
+            return self.is_locked_override
+        # 2. Otherwise auto-lock when past deadline
+        return self.is_past_deadline
 
     @property
     def is_current(self):
         today = timezone.now().date()
-        return self.start_date <= today <= self.end_date
+        return self.start_date <= today <= self.end_date if (self.start_date and self.end_date) else False
 
     @property
     def status(self):
         today = timezone.now().date()
-        if today < self.start_date:
+        if self.start_date and today < self.start_date:
             return "Not Started"
         elif self.is_locked:
             return "Locked"
@@ -118,21 +129,19 @@ class InternshipWeek(models.Model):
     def effective_coordinator(self):
         if self.supervisor:
             return self.supervisor
-        if self.department and self.department.coordinator:
+        if self.department and getattr(self.department, 'coordinator', None):
             return self.department.coordinator
         if self.intern:
-            return self.intern.supervisor
+            return getattr(self.intern, 'supervisor', None)
         return None
-
-
 class Topic(models.Model):
     week = models.ForeignKey(InternshipWeek, on_delete=models.CASCADE, related_name='topics')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
 
     def __str__(self):
-        return f"{self.week.title} - {self.title}"
-
+        dept_name = self.week.department.name if self.week.department else "General"
+        return f"Week {self.week.week_number} ({dept_name}) - {self.title}"
 
 class DailyTask(models.Model):
     STATUS_CHOICES = [

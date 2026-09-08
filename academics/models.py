@@ -98,7 +98,7 @@ class InternshipWeek(models.Model):
         dept_name = self.department.name if self.department else "General"
         return f"Week {self.week_number} - {dept_name}"
 
-  @property
+    @property
     def is_past_deadline(self):
         try:
             end_d = getattr(self, 'end_date', None)

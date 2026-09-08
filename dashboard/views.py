@@ -882,14 +882,6 @@ def update_task_api(request, task_id):
     task.save()
     return JsonResponse({'success': True, 'title': task.title, 'description': task.description, 'due_date': str(task.due_date) if task.due_date else None})
 
-@login_required
-def delete_task_api(request, task_id):
-    if request.method == 'POST':
-        task = get_object_or_404(Task, id=task_id)
-        task.delete()
-        return JsonResponse({'success': True, 'message': 'Task deleted successfully.'})
-    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=400)
-
 
 @login_required
 @require_POST
@@ -1106,7 +1098,10 @@ def get_messages_api(request):
         Message.objects.filter(sender=target_user, recipient=request.user, is_read=False).update(is_read=True)
 
         # Set local time zone for Faisalabad / Pakistan
-        karachi_tz = pytz.timezone('Asia/Karachi')
+        try:
+            karachi_tz = ZoneInfo('Asia/Karachi')
+        except Exception:
+            karachi_tz = timezone.get_current_timezone()
 
         messages_data = []
         for msg in messages:

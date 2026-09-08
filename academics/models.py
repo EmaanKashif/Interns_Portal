@@ -59,7 +59,6 @@ class DepartmentAssignment(models.Model):
         today = timezone.now().date()
         return self.start_date <= today <= self.end_date
 
-
 class InternshipWeek(models.Model):
     intern = models.ForeignKey(InternProfile, on_delete=models.CASCADE, related_name='schedule_weeks')
     week_number = models.IntegerField()

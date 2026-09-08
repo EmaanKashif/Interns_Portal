@@ -100,16 +100,25 @@ class InternshipWeek(models.Model):
 
     @property
     def is_past_deadline(self):
-        return timezone.now().date() > self.end_date if self.end_date else False
+        end_d = getattr(self, 'end_date', None)
+        return timezone.now().date() > end_d if end_d else False
 
     @property
     def is_locked(self):
-        # 1. If admin explicitly toggled a status, respect the override
-        if self.is_locked_override is not None:
-            return self.is_locked_override
-        # 2. Otherwise auto-lock when past deadline
-        return self.is_past_deadline
+        # 1. Safe check for admin override if column exists
+        override = getattr(self, 'is_locked_override', None)
+        if override is not None:
+            return override
 
+        # 2. Safe check for auto-lock deadline
+        if hasattr(self, 'is_past_deadline'):
+            return self.is_past_deadline
+
+        # 3. Fallback check using end_date
+        end_d = getattr(self, 'end_date', None)
+        if end_d:
+            return timezone.now().date() > end_d
+        return False
     @property
     def is_current(self):
         today = timezone.now().date()

@@ -98,31 +98,36 @@ class InternshipWeek(models.Model):
         dept_name = self.department.name if self.department else "General"
         return f"Week {self.week_number} - {dept_name}"
 
-    @property
+  @property
     def is_past_deadline(self):
-        end_d = getattr(self, 'end_date', None)
-        return timezone.now().date() > end_d if end_d else False
+        try:
+            end_d = getattr(self, 'end_date', None)
+            return timezone.now().date() > end_d if end_d else False
+        except Exception:
+            return False
 
     @property
     def is_locked(self):
-        # 1. Safe check for admin override if column exists
-        override = getattr(self, 'is_locked_override', None)
-        if override is not None:
-            return override
+        try:
+            override = getattr(self, 'is_locked_override', None)
+            if override is not None:
+                return override
+            end_d = getattr(self, 'end_date', None)
+            if end_d:
+                return timezone.now().date() > end_d
+            return False
+        except Exception:
+            return False
 
-        # 2. Safe check for auto-lock deadline
-        if hasattr(self, 'is_past_deadline'):
-            return self.is_past_deadline
-
-        # 3. Fallback check using end_date
-        end_d = getattr(self, 'end_date', None)
-        if end_d:
-            return timezone.now().date() > end_d
-        return False
     @property
     def is_current(self):
-        today = timezone.now().date()
-        return self.start_date <= today <= self.end_date if (self.start_date and self.end_date) else False
+        try:
+            today = timezone.now().date()
+            s_date = getattr(self, 'start_date', None)
+            e_date = getattr(self, 'end_date', None)
+            return s_date <= today <= e_date if (s_date and e_date) else False
+        except Exception:
+            return False
 
     @property
     def status(self):

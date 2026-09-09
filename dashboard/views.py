@@ -748,7 +748,17 @@ def intern_add_day_api(request, week_id):
     """Allows adding task items to an internship week."""
     try:
         intern = get_object_or_404(InternProfile, user=request.user)
-        week = get_object_or_404(InternshipWeek, id=week_id, intern=intern)
+        week = get_object_or_404(InternshipWeek, id=week_id)
+
+        # 1. Authorize if week is explicitly theirs OR they are in the week's department
+        is_authorized = False
+        if getattr(week, 'intern', None) == intern:
+            is_authorized = True
+        elif week.department and DepartmentAssignment.objects.filter(intern=intern, department=week.department).exists():
+            is_authorized = True
+            
+        if not is_authorized:
+            return JsonResponse({'success': False, 'error': 'Permission denied for this schedule week.'}, status=403)
 
         topic = week.topics.first() if hasattr(week, 'topics') and week.topics.exists() else None
         if not topic:
@@ -781,8 +791,6 @@ def intern_add_day_api(request, week_id):
             status='not_started',
         )
 
-        # Return updated stats too, so the frontend can update the header
-        # cards and this week's progress badge in place — no full reload.
         overall_stats = _compute_task_stats(DailyTask.objects.filter(intern=intern))
         week_stats = _compute_task_stats(DailyTask.objects.filter(topic__week=week, intern=intern))
 

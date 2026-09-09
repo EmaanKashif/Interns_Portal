@@ -368,8 +368,8 @@
 {% block scripts %}
 <script>
     const ENDPOINTS = {
-    addDay: (weekId) => `/dashboard/intern/week/${weekId}/add-day/`,
-    editTask: (taskId) => `/dashboard/intern/task/${taskId}/edit/`,
+    addDay: (weekId) => "{% url 'dashboard:intern_add_day_api' 999999 %}".replace('999999', weekId),
+    editTask: (taskId) => "{% url 'dashboard:intern_edit_task_api' 999999 %}".replace('999999', taskId),
     deleteTask: (taskId) => "{% url 'dashboard:delete_task_api' 999999 %}".replace('999999', taskId),
     updateTaskStatus: (taskId) => "{% url 'dashboard:update_task_status' 999999 %}".replace('999999', taskId),
     submitTask: (taskId) => "{% url 'academics:submit_task_api' 999999 %}".replace('999999', taskId),
@@ -407,34 +407,47 @@
 
     // 2. Add Day Action
     function addDayToWeek(weekId, btnEl) {
-        if (btnEl) {
-            btnEl.disabled = true;
-            btnEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Adding...`;
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Adding...`;
+    }
+
+    fetch(ENDPOINTS.addDay(weekId), {
+        method: 'POST',
+        headers: { 
+            'X-CSRFToken': getCsrfToken(),
+            'Accept': 'application/json'
+        }
+    })
+    .then(async res => {
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            throw new Error(`Server returned non-JSON (${res.status}): ${text.slice(0, 100)}`);
         }
 
-        fetch(ENDPOINTS.addDay(weekId), {
-            method: 'POST',
-            headers: { 'X-CSRFToken': getCsrfToken() }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                if (typeof showToast === 'function') showToast('New day added successfully.', 'success');
-                setTimeout(() => window.location.reload(), 300);
-            } else {
-                throw new Error(data.error || 'Failed to add day.');
-            }
-        })
-        .catch(err => {
-            if (typeof showToast === 'function') showToast(err.message || 'Error adding day.', 'error');
-        })
-        .finally(() => {
-            if (btnEl) {
-                btnEl.disabled = false;
-                btnEl.innerHTML = `<i class="fa-solid fa-plus"></i> Add Day`;
-            }
-        });
-    }
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `Server error (${res.status})`);
+        }
+        return data;
+    })
+    .then(data => {
+        if (typeof showToast === 'function') showToast('New day added successfully.', 'success');
+        setTimeout(() => window.location.reload(), 300);
+    })
+    .catch(err => {
+        console.error('addDayToWeek error:', err);
+        if (typeof showToast === 'function') showToast(err.message || 'Error adding day.', 'error');
+    })
+    .finally(() => {
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = `<i class="fa-solid fa-plus"></i> Add Day`;
+        }
+    });
+}
 
     // 3. Edit Task Modal Handlers
     function openEditTaskModal(taskId, weekId, title, description, date) {
